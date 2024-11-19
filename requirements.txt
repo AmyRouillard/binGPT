@@ -1,0 +1,5 @@
+regex
+requests
+torch
+numpy
+ipykernel
