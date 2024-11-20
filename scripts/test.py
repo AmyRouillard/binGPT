@@ -176,3 +176,91 @@ pred_text = tokenizer.sequences_to_texts(pred)
 print(pred_text)
 
 # %%
+
+from mingpt.utils import CfgNode as CN
+from mingpt.model import GPT
+from utils.tokenizer import CustomTokenizer
+from utils.tentmapdataset import TentMap2Dataset
+
+# %%
+
+# create a dataset that is x,y pairs wher y = f^n(x)
+n = 2
+dataset = TentMap2Dataset(iterations=n)
+# batch of 10 samples
+X, Y = dataset.generate_batch(10)
+
+# %%
+bos = None  # no beginning of sentence token
+eos = "$"  # end of sentence token
+prompt_template = "{}>{}" + eos  # template for the prompt
+
+# create a custom tokenizer
+tokenizer = CustomTokenizer(
+    bos_token=bos,
+    eos_token=eos,
+    n_pad=dataset.max_length * 2 - dataset.iterations + 3,
+)
+prompts = [prompt_template.format(x, y) for x, y in zip(X, Y)]
+print(prompts)
+
+# %%
+
+tokenized_texts = tokenizer.texts_to_sequences(prompts)
+
+print("Tokenized texts:")
+print(tokenized_texts)
+print("Decoded texts:")
+print(tokenizer.sequences_to_texts(tokenized_texts))
+
+# %%
+config = CN(
+    # model parameters
+    n_layer=3,
+    n_head=3,
+    n_embd=tokenizer.n_pad,
+    vocab_size=tokenizer.vocab_size,
+    block_size=tokenizer.n_pad,
+    embd_pdrop=0.1,
+    attn_pdrop=0.1,
+    resid_pdrop=0.1,
+    # training
+    # device to train on
+    device="auto",
+    # dataloder parameters
+    num_workers=4,
+    # optimizer parameters
+    max_iters=None,
+    batch_size=64,
+    learning_rate=3e-4,
+    betas=(0.9, 0.95),
+    weight_decay=0.1,  # only applied on matmul weights
+    grad_norm_clip=1.0,
+)
+
+print(config)
+
+model = GPT(config)
+# %%
+
+# out = model(tokenized_texts)
+
+# # take the argmax of the prediction
+# pred = out[0].argmax(dim=-1)
+# # decode the prediction
+# pred_text = tokenizer.sequences_to_texts(pred)
+
+# print("Predicted text: (untrained model)")
+# print(pred_text)
+
+# %%
+
+out = model.forward(tokenized_texts)
+
+# take the argmax of the prediction
+pred = out[0].argmax(dim=-1)
+# decode the prediction
+pred_text = tokenizer.sequences_to_texts(pred)
+
+print("Predicted text: (untrained model)")
+print(pred_text)
