@@ -2,15 +2,18 @@
 
 from utils.tentmapdataset import SortDataset
 
-
-# %%
-
 # print an example instance of the dataset
 n = 1
 length = 12
 train_dataset = SortDataset("train", length=length, n_iterations=n)
 test_dataset = SortDataset("test", length=length, n_iterations=n)
+
 x, y = train_dataset[0]
+
+print("x:", x)
+print("y:", y)
+
+x, y = test_dataset[0]
 
 print("x:", x)
 print("y:", y)
@@ -39,7 +42,6 @@ for i in range(train_dataset.__len__()):
     #     print("x:", x)
     #     print("y:", y)
     # break
-
 
 print(len(X))
 
@@ -74,10 +76,25 @@ print(len(X))
 # create a GPT instance
 from mingpt.model import GPT
 
-model_config = GPT.get_default_config()
-model_config.model_type = "gpt-nano"
-model_config.vocab_size = train_dataset.get_vocab_size()
-model_config.block_size = train_dataset.get_block_size()
+# model_config = GPT.get_default_config()
+# model_config.model_type = "gpt-nano"
+# model_config.vocab_size = train_dataset.get_vocab_size()
+# model_config.block_size = train_dataset.get_block_size()
+
+from mingpt.utils import CfgNode as CN
+
+model_config = CN(
+    n_layer=1,
+    n_head=1,
+    n_embd=48,
+    model_type=None,
+    vocab_size=train_dataset.get_vocab_size(),
+    block_size=train_dataset.get_block_size(),
+    embd_pdrop=0.1,
+    attn_pdrop=0.1,
+    resid_pdrop=0.1,
+)
+
 model = GPT(model_config)
 # %%
 
@@ -86,7 +103,7 @@ from mingpt.trainer import Trainer
 
 train_config = Trainer.get_default_config()
 train_config.learning_rate = 3e-4
-train_config.max_iters = 2000
+train_config.max_iters = 3000
 train_config.num_workers = 0
 trainer = Trainer(train_config, model, train_dataset)
 # %%
@@ -140,10 +157,10 @@ def eval_split(trainer, split, max_batches):
         for i in range(x.size(0)):
             results.append(int(correct[i]))
             if (
-                not correct[i] and "".join(map(str(inp[i].tolist()))) not in mistakes
+                not correct[i] and "".join(map(str, inp[i].tolist())) not in mistakes
             ):  # and mistakes_printed_already < 3  # only print up to 5 mistakes to get a sense
                 mistakes_printed_already += 1
-                mistakes.append("".join(map(str(inp[i].tolist()))))
+                mistakes.append("".join(map(str, inp[i].tolist())))
                 print(
                     "GPT claims that %s sorted is %s but gt is %s"
                     % (inp[i].tolist(), sol_candidate[i].tolist(), sol[i].tolist())
@@ -171,7 +188,7 @@ with torch.no_grad():
 
 # let's run a random given sequence through the model as well
 n = train_dataset.length  # naugy direct access shrug
-inp, sol = train_dataset[0]
+inp, sol = train_dataset[3]
 inp = inp[:n]
 sol = sol[-n:]
 

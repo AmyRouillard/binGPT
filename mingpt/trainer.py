@@ -68,8 +68,11 @@ class Trainer:
         # setup the dataloader
         train_loader = DataLoader(
             self.train_dataset,
+            # sampler=torch.utils.data.RandomSampler(
+            #     self.train_dataset, replacement=True, num_samples=int(1e10)
+            # ),
             sampler=torch.utils.data.RandomSampler(
-                self.train_dataset, replacement=True, num_samples=int(1e10)
+                self.train_dataset, replacement=False
             ),
             shuffle=False,
             pin_memory=True,
