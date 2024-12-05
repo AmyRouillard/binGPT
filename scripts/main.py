@@ -4,7 +4,7 @@ from utils.tentmapdataset import SortDataset
 
 # print an example instance of the dataset
 n = 1
-length = 12
+length = 16
 train_dataset = SortDataset("train", length=length, n_iterations=n)
 test_dataset = SortDataset("test", length=length, n_iterations=n)
 
@@ -84,9 +84,9 @@ from mingpt.model import GPT
 from mingpt.utils import CfgNode as CN
 
 model_config = CN(
-    n_layer=1,
-    n_head=1,
-    n_embd=48,
+    n_layer=3,
+    n_head=3,
+    n_embd=2**4 * 3,
     model_type=None,
     vocab_size=train_dataset.get_vocab_size(),
     block_size=train_dataset.get_block_size(),
@@ -162,7 +162,7 @@ def eval_split(trainer, split, max_batches):
                 mistakes_printed_already += 1
                 mistakes.append("".join(map(str, inp[i].tolist())))
                 print(
-                    "GPT claims that %s sorted is %s but gt is %s"
+                    "GPT claims that %s -> %s but g.t. is %s"
                     % (inp[i].tolist(), sol_candidate[i].tolist(), sol[i].tolist())
                 )
         if max_batches is not None and b + 1 >= max_batches:
