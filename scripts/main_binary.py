@@ -1,12 +1,12 @@
 # %%
 
-from utils.tentmapdataset import SortDataset
+from utils.tentmapdataset import TentDataset
 
 # print an example instance of the dataset
 n = 1
 length = 16
-train_dataset = SortDataset("train", length=length, n_iterations=n)
-test_dataset = SortDataset("test", length=length, n_iterations=n)
+train_dataset = TentDataset("train", length=length, n_iterations=n)
+test_dataset = TentDataset("test", length=length, n_iterations=n)
 
 x, y = train_dataset[0]
 
@@ -75,12 +75,6 @@ print(len(X))
 
 # create a GPT instance
 from mingpt.model import GPT
-
-# model_config = GPT.get_default_config()
-# model_config.model_type = "gpt-nano"
-# model_config.vocab_size = train_dataset.get_vocab_size()
-# model_config.block_size = train_dataset.get_block_size()
-
 from mingpt.utils import CfgNode as CN
 
 model_config = CN(
@@ -134,7 +128,7 @@ from torch.utils.data.dataloader import DataLoader
 
 def eval_split(trainer, split, max_batches):
     dataset = {"train": train_dataset, "test": test_dataset}[split]
-    n = train_dataset.length  # naugy direct access shrug
+    n = train_dataset.length
     results = []
     mistakes = []
     mistakes_printed_already = 0
@@ -151,9 +145,7 @@ def eval_split(trainer, split, max_batches):
         )  # using greedy argmax, not sampling
         sol_candidate = cat[:, n:]  # isolate the filled in sequence
         # compare the predicted sequence to the true sequence
-        correct = (
-            (sol == sol_candidate).all(1).cpu()
-        )  # Software 1.0 vs. Software 2.0 fight RIGHT on this line haha
+        correct = (sol == sol_candidate).all(1).cpu()
         for i in range(x.size(0)):
             results.append(int(correct[i]))
             if (

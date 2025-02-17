@@ -66,25 +66,29 @@ class TentMap2Dataset:
             return X, Y
 
 
-class SortDataset(Dataset):
-    """
-    Dataset for the Sort problem. E.g. for problem length 6:
-    Input: 0 0 2 1 0 1 -> Output: 0 0 0 1 1 2
-    Which will feed into the transformer concatenated as:
-    input:  0 0 2 1 0 1 0 0 0 1 1
-    output: I I I I I 0 0 0 1 1 2
-    where I is "ignore", as the transformer is reading the input sequence
-    """
+class TentDataset(Dataset):
+    """ """
 
-    def __init__(self, split, length=6, n_iterations=1):
+    def __init__(self, split, length=6, n_iterations=1, type="binary"):
         assert split in {"train", "test"}
         assert length > 2
         self.split = split
-        self.length = length
-        self.n_iterations = n_iterations
+        self._length = length
 
-        in_test = list("1" * (2 ** (self.length - 2))) + list(
-            "0" * (2 ** (self.length - 2) * 3)
+        if type == "binary":
+            self.length = self._length
+        elif type == "decimal":
+            self.length = 1
+            while (10 ** (self.length) * 2 ** (-self._length)) % 1 != 0:
+                self.length += 1
+        else:
+            raise ValueError("type must be either 'binary' or 'decimal'")
+
+        self.n_iterations = n_iterations
+        self.type = type
+
+        in_test = list("1" * (2 ** (self._length - 2))) + list(
+            "0" * (2 ** (self._length - 2) * 3)
         )
         # shuffle the in_test list with a fixed seed
         np.random.seed(42)
@@ -102,15 +106,15 @@ class SortDataset(Dataset):
         #     ">": 3,  # separator
         #     " ": 4,  # pad
         # }
-        self.vocab_size = 2  # binary
+        self.vocab_size = 2 if type == "binary" else 10
 
         assert len(self.map_idx) == self.__len__()
 
     def __len__(self):
         if self.split == "train":
-            return 2 ** (self.length - 2) * 3
+            return 2 ** (self._length - 2) * 3
         else:
-            return 2 ** (self.length - 2)
+            return 2 ** (self._length - 2)
 
     def get_vocab_size(self):
         return self.vocab_size
@@ -124,12 +128,12 @@ class SortDataset(Dataset):
             x = idx
 
         # convert x into a binary string
-        x = bin(x)[2:].zfill(self.length)
+        x = bin(x)[2:].zfill(self._length)
 
         ind_most_significant = x.rfind("1")
         # x = ""
         # ind_most_significant = -1
-        # for i in range(self.length):
+        # for i in range(self._length):
         #     if np.random.rand() > 0.5:
         #         x += "1"
         #         ind_most_significant = i
@@ -141,10 +145,10 @@ class SortDataset(Dataset):
 
             if ind_most_significant == -1:
                 # if ind_most_significant == -1, then x is zero, which remains zero
-                y = "0" * self.length
+                y = "0" * self._length
             elif ind_most_significant == 0:
                 # if ind_most_significant == 0, then x is 1/2, which becomes 1
-                y = "1" * self.length
+                y = "1" * self._length
                 ind_most_significant = -1
             else:
                 # if ind_most_significant > 0 then follow the usual rule
@@ -162,32 +166,40 @@ class SortDataset(Dataset):
 
             x_tmp.append(y)
 
-        # return x_tmp
+        x0 = x_tmp[0]
+        x1 = x_tmp[-1]
+
+        if self.type == "decimal":
+
+            x0 = sum([int(d) / 2**i / 2 for i, d in enumerate(x0)])
+            x0 = format(x0, f".{self.length}f")[2:]
+            x1 = sum([int(d) / 2**i / 2 for i, d in enumerate(x1)])
+            x1 = format(x1, f".{self.length}f")[2:]
 
         # convert to torch tensors
         return (
-            torch.tensor([int(d) for d in x_tmp[0]], dtype=torch.long),
-            torch.tensor([int(d) for d in x_tmp[-1]], dtype=torch.long),
+            torch.tensor([int(d) for d in x0], dtype=torch.long),
+            torch.tensor([int(d) for d in x1], dtype=torch.long),
         )
 
     def get_block_size(self):
         # the length of the sequence that will feed into transformer,
-        # containing concatenated input (self.length)
-        # and the output (self.length - self.n_iterations), but -1 because
+        # containing concatenated input (self._length)
+        # and the output (self._length - self.n_iterations), but -1 because
         # the transformer starts making predictions at the last input element
-        return self.length * 2 - 1  # - self.n_iterations
+        return self._length * 2 - 1  # - self.n_iterations
 
     def __getitem__(self, idx):
 
         # # use rejection sampling to generate an input example from the desired split
         # while True:
         #     # # generate some random integers
-        #     # inp = torch.randint(self.num_digits, size=(self.length,), dtype=torch.long)
+        #     # inp = torch.randint(self.num_digits, size=(self._length,), dtype=torch.long)
         #     # # half of the time let's try to boost the number of examples that
         #     # # have a large number of repeats, as this is what the model seems to struggle
         #     # # with later in training, and they are kind of rate
         #     # if torch.rand(1).item() < 0.5:
-        #     #     if inp.unique().nelement() > self.length // 2:
+        #     #     if inp.unique().nelement() > self._length // 2:
         #     #         # too many unqiue digits, re-sample
         #     #         continue
         #     inp, sol = self.generate_data_sequence()
@@ -211,7 +223,7 @@ class SortDataset(Dataset):
         x = cat[:-1].clone()
         y = cat[1:].clone()
         # we only want to predict at output locations, mask out the loss at the input locations
-        y[: self.length - 1] = -1
+        y[: self._length - 1] = -1
 
         # assert x and y have length self.get_block_size()
         assert x.size(0) == self.get_block_size()
