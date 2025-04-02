@@ -18,5 +18,5 @@ setup(
         "License :: Apache License 2.0",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.12",  # Minimum Python version
+    python_requires=">=3.11",  # Minimum Python version
 )
