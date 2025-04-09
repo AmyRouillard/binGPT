@@ -386,3 +386,58 @@ class GPT(nn.Module):
             idx = torch.cat((idx, idx_next), dim=1)
 
         return idx
+
+
+class GPTforProbing(GPT):
+    """GPT Language Model with probing head"""
+
+    def __init__(self, config, probe_layer=0):
+        super().__init__(config)
+        self.probe_layer = probe_layer
+
+        # assert that probe_layer  is a valid layer index
+        assert (
+            probe_layer <= config.n_layer
+        ), f"probe_layer  {probe_layer } is out of range"
+        assert probe_layer >= 0, f"probe_layer  {probe_layer } is out of range"
+
+    @torch.no_grad()
+    def forward_1of2(self, idx):
+        device = idx.device
+        b, t = idx.size()
+        assert (
+            t <= self.block_size
+        ), f"Cannot forward sequence of length {t}, block size is only {self.block_size}"
+        pos = torch.arange(0, t, dtype=torch.long, device=device).unsqueeze(
+            0
+        )  # shape (1, t)
+
+        # forward the GPT model itself
+        tok_emb = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
+        pos_emb = self.transformer.wpe(
+            pos
+        )  # position embeddings of shape (1, t, n_embd)
+        x = self.transformer.drop(tok_emb + pos_emb)
+
+        for block in self.transformer.h[: self.probe_layer]:
+            x = block(x)  # TODO deeper into the block?
+
+        return x
+
+    @torch.no_grad()
+    def forward_2of2(self, x, targets=None):
+
+        for block in self.transformer.h[self.probe_layer :]:
+            x = block(x)  # TODO deeper into the block?
+
+        x = self.transformer.ln_f(x)
+        logits = self.lm_head(x)
+
+        # if we are given some desired targets also calculate the loss
+        loss = None
+        if targets is not None:
+            loss = F.cross_entropy(
+                logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1
+            )
+
+        return logits, loss

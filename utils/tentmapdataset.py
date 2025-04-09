@@ -230,3 +230,25 @@ class TentDataset(Dataset):
         assert y.size(0) == self.get_block_size()
 
         return x, y
+
+
+class ProbeDataset(TentDataset):
+    """ """
+
+    def __init__(self, split, length=6, n_iterations=1, type="binary"):
+        super().__init__(split, length, n_iterations, type)
+        assert split in {"train", "test"}
+
+    def __getitem__(self, idx):
+
+        inp, sol = self.generate_data_sequence(self.map_idx[idx])
+        cat = torch.cat((inp, sol), dim=0)
+
+        # the inputs to the transformer will be the offset sequence
+        x = cat[:-1].clone()
+        y = (x[self.n_iterations] == 1).long()
+
+        # assert x and y have length self.get_block_size()
+        assert x.size(0) == self.get_block_size()
+
+        return x, y
