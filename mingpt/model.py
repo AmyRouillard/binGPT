@@ -441,3 +441,37 @@ class GPTforProbing(GPT):
             )
 
         return logits, loss
+
+
+class Probe(nn.Module):
+    def __init__(
+        self,
+        n_classes,
+        input_dim,
+    ):
+        super().__init__()
+
+        self.n_classes = n_classes
+        self.shape = input_dim
+        # assume the input dim is torch.Size([batch_size,...])
+        self.input_dim = int(torch.prod(torch.tensor(self.shape)))
+
+        self.W = nn.Linear(
+            self.input_dim,
+            self.n_classes,
+            bias=True,
+        )
+
+    def forward(self, x, targets=None):
+        x = x.view(x.size(0), -1)  # flatten the input
+
+        x = self.W(x)  # apply the linear layer
+
+        # if we are given some desired targets also calculate the loss
+        loss = None
+        if targets is not None:
+            loss = F.cross_entropy(
+                x.view(-1, x.size(-1)), targets.view(-1), ignore_index=-1
+            )
+
+        return x, loss

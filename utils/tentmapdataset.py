@@ -87,8 +87,8 @@ class TentDataset(Dataset):
         self.n_iterations = n_iterations
         self.type = type
 
-        in_test = list("1" * (2 ** (self._length - 2))) + list(
-            "0" * (2 ** (self._length - 2) * 3)
+        in_test = list("1" * (2 ** (self._length - 4))) + list(
+            "0" * (2 ** (self._length - 4) * 15)
         )
         # shuffle the in_test list with a fixed seed
         np.random.seed(42)
@@ -112,9 +112,9 @@ class TentDataset(Dataset):
 
     def __len__(self):
         if self.split == "train":
-            return 2 ** (self._length - 2) * 3
+            return 2 ** (self._length - 4) * 15
         else:
-            return 2 ** (self._length - 2)
+            return 2 ** (self._length - 4)
 
     def get_vocab_size(self):
         return self.vocab_size
@@ -232,12 +232,38 @@ class TentDataset(Dataset):
         return x, y
 
 
+# class ProbeDataset(TentDataset):
+#     """flip or no-flip: check if the nth bit of batch is 1 or 0"""
+
+#     def __init__(self, split, length=6, n_iterations=1, type="binary"):
+#         super().__init__(split, length, n_iterations, type)
+#         assert split in {"train", "test"}
+
+#         self.n_classes = 2  # flip or no-flip
+
+#     def __getitem__(self, idx):
+
+#         inp, sol = self.generate_data_sequence(self.map_idx[idx])
+#         cat = torch.cat((inp, sol), dim=0)
+
+#         # the inputs to the transformer will be the offset sequence
+#         x = cat[:-1].clone()
+#         y = (x[self.n_iterations] == 1).long()
+
+#         # assert x and y have length self.get_block_size()
+#         assert x.size(0) == self.get_block_size()
+
+#         return x, y
+
+
 class ProbeDataset(TentDataset):
-    """ """
+    """find the position of the least significant bit in the input sequence"""
 
     def __init__(self, split, length=6, n_iterations=1, type="binary"):
         super().__init__(split, length, n_iterations, type)
         assert split in {"train", "test"}
+
+        self.n_classes = length  # find the position of the least significant bit
 
     def __getitem__(self, idx):
 
@@ -246,7 +272,8 @@ class ProbeDataset(TentDataset):
 
         # the inputs to the transformer will be the offset sequence
         x = cat[:-1].clone()
-        y = (x[self.n_iterations] == 1).long()
+        # where is x ==1
+        y = (inp == 1).nonzero()[-1].long()
 
         # assert x and y have length self.get_block_size()
         assert x.size(0) == self.get_block_size()
