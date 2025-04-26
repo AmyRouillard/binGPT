@@ -2,6 +2,7 @@
 
 import time
 import os
+import numpy as np
 
 # datetime
 dt = time.strftime("%Y_%m_%d_%H_%M", time.localtime())
@@ -9,7 +10,7 @@ dt = time.strftime("%Y_%m_%d_%H_%M", time.localtime())
 data_type = "binary"  # "decimal"
 
 wdir = "C:/Users/Amy/Desktop/Green_Git/binGPT/"
-model_dir = wdirx + f"models/{data_type}_{dt}/"  #
+model_dir = wdir + f"models/{data_type}_{dt}/"  #
 # model_dir = wdir + "models/binary_2025_04_23_13_02"
 
 # %%
@@ -17,7 +18,7 @@ model_dir = wdirx + f"models/{data_type}_{dt}/"  #
 from utils.tentmapdataset import TentDataset
 
 # print an example instance of the dataset
-n = 4
+n = 6
 length = 22
 train_dataset = TentDataset("train", length=length, n_iterations=n, type=data_type)
 test_dataset = TentDataset("test", length=length, n_iterations=n, type=data_type)
@@ -116,7 +117,7 @@ trainer = Trainer(train_config, model, train_dataset)
 def batch_end_callback(trainer):
     if trainer.iter_num % 100 == 0:
         print(
-            f"iter_dt {trainer.iter_dt * 1000:.2f}ms; iter {trainer.iter_num}: train loss {trainer.loss.item():.5f}"
+            f"iter_dt {trainer.iter_dt * 1000:.2f}ms; iter {trainer.iter_num}: train loss {trainer.loss.item():.4e}"
         )
 
 
@@ -310,7 +311,6 @@ plt.tight_layout()
 
 # %%
 
-import numpy as np
 
 eval_type = "test"
 for gamma in [0.0, 0.1, 0.5]:
