@@ -3,54 +3,87 @@
 import time
 import os
 import numpy as np
+from utils.tentmapdataset import TentDataset
+from mingpt.model import GPT
+from mingpt.utils import CfgNode as CN
+import json
+from mingpt.trainer import Trainer
+import torch
+from torch.utils.data.dataloader import DataLoader
+from tqdm import tqdm
+import csv
+
+# %%
+
 
 # datetime
 dt = time.strftime("%Y_%m_%d_%H_%M", time.localtime())
 
-data_type = "binary"  # "decimal"
 
 wdir = "C:/Users/Amy/Desktop/Green_Git/binGPT/"
-model_dir = wdir + f"models/{data_type}_{dt}/"  #
+model_dir = wdir + f"models/{dt}/"  #
 # model_dir = wdir + "models/binary_2025_04_23_13_02"
 
-# %%
-
-from utils.tentmapdataset import TentDataset
-
-# print an example instance of the dataset
-n = 6
-length = 22
-train_dataset = TentDataset("train", length=length, n_iterations=n, type=data_type)
-test_dataset = TentDataset("test", length=length, n_iterations=n, type=data_type)
-
-x, y = train_dataset[0]
-
-print("x:", x)
-print("y:", y)
-
-x, y = test_dataset[0]
-
-print("x:", x)
-print("y:", y)
-
-# %%
-
-print(train_dataset.map_idx[:10])
-print(test_dataset.map_idx[:10])
-# %%
-
-from mingpt.model import GPT
-from mingpt.utils import CfgNode as CN
-
-import json
-
-# check if config.json exist in model_dir, if not create it
 if os.path.exists(os.path.join(model_dir, "config.json")):
     # read json file
     with open(os.path.join(model_dir, "config.json"), "r") as f:
-        model_config_dict = json.load(f)
+        config = json.load(f)
+else:
 
-    print(model_config_dict)
+    configs = {
+        "data_type": "binary",
+        "n": 3,
+        "length": 23,
+    }
+
+    n = 4
+    # 0-train, 1-test, 2-validation
+    in_test = (
+        list("1" * (2 ** (configs["length"] - n - 1)))
+        + list("2" * (2 ** (configs["length"] - n - 1)))
+        + list("0" * (2 ** (configs["length"] - n) * (2**n - 1)))
+    )
+
+    # shuffle the in_test list with a fixed seed
+    rng = np.random.default_rng(42)
+    in_test = rng.permutation(in_test).tolist()
+
+    configs["in_test"] = in_test
+
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
+
+    with open(os.path.join(model_dir, "config.json"), "w") as f:
+        json.dump(configs, f, indent=4)
+
+train_dataset = TentDataset(
+    "train",
+    length=configs["length"],
+    n_iterations=configs["n"],
+    type=configs["data_type"],
+    in_test=in_test,
+)
+test_dataset = TentDataset(
+    "test",
+    length=configs["length"],
+    n_iterations=configs["n"],
+    type=configs["data_type"],
+    in_test=in_test,
+)
+validation_dataset = TentDataset(
+    "validation",
+    length=configs["length"],
+    n_iterations=configs["n"],
+    type=configs["data_type"],
+    in_test=in_test,
+)
+
+
+# check if config.json exist in model_dir, if not create it
+if os.path.exists(os.path.join(model_dir, "model_config.json")):
+    # read json file
+    with open(os.path.join(model_dir, "model_config.json"), "r") as f:
+        model_config_dict = json.load(f)
 else:
     # create model_config_dict
     model_config_dict = {
@@ -77,104 +110,119 @@ else:
     #     "resid_pdrop": 0.1,
     # }
 
+    with open(os.path.join(model_dir, "model_config.json"), "w") as f:
+        json.dump(model_config_dict, f, indent=4)
+
 
 model_config = CN(**model_config_dict)
-
-
 model = GPT(model_config)
+
 
 print(f"Number of training samples: {len(train_dataset):.3e}")
 print(f"Number of test samples: {len(test_dataset):.3e}")
+print(f"Number of validation samples: {len(validation_dataset):.3e}")
 
 
 # %%
 
-import torch
-import torch_directml
+if os.path.exists(os.path.join(model_dir, "trainer_config.json")):
+    with open(os.path.join(model_dir, "trainer_config.json"), "r") as f:
+        train_config_dict = json.load(f)
 
-# Initialize the DirectML device
-device = torch_directml.device(torch_directml.default_device())
-print(f"Using DirectML device: {device}")
+    train_config = Trainer.get_default_config()
+    train_config.merge_from_dict(train_config_dict)
 
-# %%
+else:
 
-# create a Trainer object
-from mingpt.trainer import Trainer
+    train_config = Trainer.get_default_config()
+    train_config.learning_rate = 3e-4
+    train_config.batch_size = 2**10
+    train_config.max_iters = (len(train_dataset) / train_config.batch_size) * 20  # 6000
+    train_config.num_workers = 0  # os.cpu_count()
+    train_config.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-train_config = Trainer.get_default_config()
-train_config.learning_rate = 3e-4
-train_config.batch_size = 64 * 4
-train_config.max_iters = (len(train_dataset) / train_config.batch_size) * 2  # 6000
-train_config.num_workers = 0  # os.cpu_count()
-train_config.device = device
+    train_config_dict = train_config.to_dict()
+
+    # # save the config to model_dir
+    # with open(os.path.join(model_dir, "trainer_config.json"), "w") as f:
+    #     json.dump(train_config_dict, f, indent=4)
+
 
 print(train_config)
-
 trainer = Trainer(train_config, model, train_dataset)
-# %%
-
-
-def batch_end_callback(trainer):
-    if trainer.iter_num % 100 == 0:
-        print(
-            f"iter_dt {trainer.iter_dt * 1000:.2f}ms; iter {trainer.iter_num}: train loss {trainer.loss.item():.4e}"
-        )
-
-
-trainer.set_callback("on_batch_end", batch_end_callback)
-
-# %%
 
 print("Number of iterations", train_config.max_iters)
-print("Number of iterations per batch:", len(train_dataset) / train_config.batch_size)
+print("Number of iterations per epoch:", len(train_dataset) / train_config.batch_size)
 print(
     "Number of epochs:",
     train_config.max_iters / (len(train_dataset) / train_config.batch_size),
 )
 
+# %%
+
+# create .csv file with the iter_dt (ms), iter_num, loss, current_metric_val, best_metric_val, patience_counter
+
+
+if not os.path.exists(os.path.join(model_dir, "training_log.csv")):
+    with open(os.path.join(model_dir, "training_log.csv"), "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(
+            [
+                "epoch_num",
+                "iter_dt (ms)",
+                "iter_num",
+                "train_loss",
+                "current_metric_val",
+                "best_metric_val",
+            ]
+        )
+
+
+def batch_end_callback(trainer):
+    if trainer.iter_num % 100 == 0:
+        # print(
+        #     f"iter_dt {trainer.iter_dt * 1000:.2f}ms; iter {trainer.iter_num}: train loss {trainer.loss.item():.4e}"
+        # )
+        with open(os.path.join(model_dir, "training_log.csv"), "a", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(
+                [
+                    trainer.epoch_num,
+                    trainer.iter_dt * 1000,
+                    trainer.iter_num,
+                    trainer.loss.item(),
+                    trainer.current_metric_val,
+                    trainer.best_metric_val,
+                ]
+            )
+
+
+trainer.set_callback("on_batch_end", batch_end_callback)
+
+
+def epoch_end_callback(trainer):
+    torch.save(
+        model.state_dict(), os.path.join(model_dir, f"model_{trainer.epoch_num}.pt")
+    )
+
+
+trainer.set_callback("on_epoch_end", epoch_end_callback)
+
 
 # %%
 
-import torch
-
+best_epoch = 0
 # if os.path.join(model_dir, "model.pt") load, else train
-if os.path.exists(os.path.join(model_dir, "model.pt")):
+if os.path.exists(os.path.join(model_dir, f"model_{best_epoch}.pt")):
     print("Loading model from disk...")
     model.load_state_dict(torch.load(os.path.join(model_dir, "model.pt")))
 else:
     print("Training model...")
     trainer.run()
 
-# %%
-
-print(model_dir)
-# check is dir exist if not create it
-if not os.path.exists(model_dir):
-    os.makedirs(model_dir)
-
-# save model to model_dir
-if os.path.exists(os.path.join(model_dir, "model.pt")):
-    print("Model exist will not be overwritten.")
-else:
-    print("Model saving...")
-    torch.save(model.state_dict(), os.path.join(model_dir, "model.pt"))
-
-if os.path.exists(os.path.join(model_dir, "config.json")):
-    print("Configs exist will not be overwritten.")
-else:
-    print("Configs saving...")
-    with open(os.path.join(model_dir, "config.json"), "w") as f:
-        json.dump(model_config_dict, f, indent=4)
-
-# %%
-
-model.eval()
 
 
 # %%
-
-from torch.utils.data.dataloader import DataLoader
-from tqdm import tqdm
 
 
 def eval_split(model, split, max_batches, device):
@@ -236,6 +284,7 @@ def eval_split(model, split, max_batches, device):
 
 # %%
 
+model.eval()
 # let's run a random given sequence through the model as well
 n = train_dataset.length  # naugy direct access shrug
 inp, sol = train_dataset[3]
