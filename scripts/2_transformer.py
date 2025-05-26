@@ -18,7 +18,7 @@ import csv
 dt = time.strftime("%Y_%m_%d_%H_%M", time.localtime())
 
 
-wdir = "/home/amyrouillard/project-files/" #"C:/Users/Amy/Desktop/Green_Git/binGPT/"
+wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/"
 model_dir = wdir + f"models/{dt}/"  #
 # model_dir = wdir + "models/binary_2025_04_23_13_02"
 
@@ -147,7 +147,7 @@ else:
 
 
 print(train_config)
-trainer = Trainer(train_config, model, train_dataset)
+trainer = Trainer(train_config, model, train_dataset, validation_dataset)
 
 print("Number of iterations", train_config.max_iters)
 print("Number of iterations per epoch:", len(train_dataset) / train_config.batch_size)

@@ -106,7 +106,7 @@ class Trainer:
 
     def _check_early_stopping(self, val_metrics):
         """Helper function to check for early stopping."""
-        if not self.val_dataset or self.config.early_stopping_patience <= 0:
+        if self.val_dataset is not None or self.config.early_stopping_patience <= 0:
             return  # No validation or early stopping disabled
 
         self.current_metric_val = val_metrics.get("val_loss", float("nan"))
@@ -150,7 +150,7 @@ class Trainer:
         )
 
         val_loader = None
-        if self.val_dataset:
+        if self.val_dataset is not None:
             val_loader = DataLoader(
                 self.val_dataset,
                 shuffle=False,  # No need to shuffle validation data

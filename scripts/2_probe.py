@@ -219,6 +219,11 @@ for probe_layer in range(model_config.n_layer + 1):
                 data_iter = iter(train_loader)
                 batch = next(data_iter)
 
+            except Exception as e:
+                print(f"Error fetching batch: {e}")
+                # skip to next iteration
+                continue
+
             batch = [t.to(device) for t in batch]
             x, y = batch
 
