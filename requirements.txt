@@ -1,5 +1,5 @@
 asttokens==3.0.0
--e git+https://github.com/AmyRouillard/binGPT.git@6d79c510b7381736c900d97345e61758210d7632#egg=binGPT
+#-e git+https://github.com/AmyRouillard/binGPT.git@6d79c510b7381736c900d97345e61758210d7632#egg=binGPT
 certifi==2025.1.31
 charset-normalizer==3.4.1
 colorama==0.4.6
