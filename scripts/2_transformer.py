@@ -25,7 +25,7 @@ model_dir = wdir + f"models/{dt}/"  #
 if os.path.exists(os.path.join(model_dir, "config.json")):
     # read json file
     with open(os.path.join(model_dir, "config.json"), "r") as f:
-        config = json.load(f)
+        configs = json.load(f)
 else:
 
     configs = {
@@ -59,21 +59,21 @@ train_dataset = TentDataset(
     length=configs["length"],
     n_iterations=configs["n"],
     type=configs["data_type"],
-    in_test=in_test,
+    in_test=configs["in_test"],
 )
 test_dataset = TentDataset(
     "test",
     length=configs["length"],
     n_iterations=configs["n"],
     type=configs["data_type"],
-    in_test=in_test,
+    in_test=configs["in_test"],
 )
 validation_dataset = TentDataset(
     "validation",
     length=configs["length"],
     n_iterations=configs["n"],
     type=configs["data_type"],
-    in_test=in_test,
+    in_test=configs["in_test"],
 )
 
 
@@ -141,9 +141,9 @@ else:
 
     train_config_dict = train_config.to_dict()
 
-    # # save the config to model_dir
-    # with open(os.path.join(model_dir, "trainer_config.json"), "w") as f:
-    #     json.dump(train_config_dict, f, indent=4)
+    # save the config to model_dir
+    with open(os.path.join(model_dir, "trainer_config.json"), "w") as f:
+        json.dump(train_config_dict, f, indent=4)
 
 
 print(train_config)

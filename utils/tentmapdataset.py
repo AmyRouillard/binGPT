@@ -257,9 +257,23 @@ class TentDataset(Dataset):
 class ProbeDataset(TentDataset):
     """find the position of the least significant bit in the input sequence"""
 
-    def __init__(self, split, length=6, n_iterations=1, type="binary"):
-        super().__init__(split, length, n_iterations, type)
-        assert split in {"train", "test"}
+    def __init__(
+        self,
+        split,
+        length=6,
+        n_iterations=1,
+        type="binary",
+        tokenized=True,
+        in_test=None,
+    ):
+        super().__init__(
+            split,
+            length,
+            n_iterations,
+            type,
+            tokenized=tokenized,
+            in_test=in_test,
+        )
 
         self.n_classes = length  # find the position of the least significant bit
 

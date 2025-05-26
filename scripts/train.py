@@ -61,21 +61,21 @@ train_dataset = TentDataset(
     length=configs["length"],
     n_iterations=configs["n"],
     type=configs["data_type"],
-    in_test=in_test,
+    in_test=configs["in_test"],
 )
 test_dataset = TentDataset(
     "test",
     length=configs["length"],
     n_iterations=configs["n"],
     type=configs["data_type"],
-    in_test=in_test,
+    in_test=configs["in_test"],
 )
 validation_dataset = TentDataset(
     "validation",
     length=configs["length"],
     n_iterations=configs["n"],
     type=configs["data_type"],
-    in_test=in_test,
+    in_test=configs["in_test"],
 )
 
 
@@ -219,7 +219,6 @@ if os.path.exists(os.path.join(model_dir, f"model_{best_epoch}.pt")):
 else:
     print("Training model...")
     trainer.run()
-
 
 
 # %%
