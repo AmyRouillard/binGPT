@@ -29,9 +29,7 @@ class Trainer:
         C.grad_norm_clip = 1.0
 
         C.val_batch_size = C.batch_size
-        C.early_stopping_patience = (
-            2  # Stop if no improvement after N validation checks
-        )
+        C.early_stopping_patience = 2
 
         return C
 
@@ -97,6 +95,9 @@ class Trainer:
             total_val_loss / total_val_samples
             if total_val_samples > 0
             else float("nan")
+        )
+        print(
+            f"Validation Loss: {avg_val_loss:.4f}; total_samples: {total_val_samples}; total_loss: {total_val_loss:.4f}"
         )
 
         val_metrics = {"val_loss": avg_val_loss}
@@ -172,9 +173,8 @@ class Trainer:
                 self.epoch_num += 1
 
                 # --- Validation Check ---
-                if val_loader:
+                if val_loader is not None:
                     val_metrics = self._run_validation(val_loader)
-
                     # --- Early Stopping Check ---
                     self._check_early_stopping(val_metrics)
                     if self.stop_training_flag:
