@@ -111,21 +111,28 @@ val_loader = DataLoader(
 best_val_loss = float("inf")
 best_epoch = 0
 
-if not os.path.exists(os.path.join(model_dir, "probe_training_log.csv")):
-    with open(os.path.join(model_dir, "probe_training_log.csv"), "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(
-            [
-                "epoch_num",
-                "iter_dt (ms)",
-                "iter_num",
-                "train_loss",
-                "best_val_loss",
-            ]
-        )
 
 for probe_layer in range(model_config.n_layer + 1):
     for w in ["random"]:  # , "trained"]:
+
+        if not os.path.exists(
+            os.path.join(model_dir, f"probe_{w}_{probe_layer}_training_log.csv")
+        ):
+            with open(
+                os.path.join(model_dir, f"probe_{w}_{probe_layer}_training_log.csv"),
+                "w",
+                newline="",
+            ) as f:
+                writer = csv.writer(f)
+                writer.writerow(
+                    [
+                        "epoch_num",
+                        "iter_dt (ms)",
+                        "iter_num",
+                        "train_loss",
+                        "best_val_loss",
+                    ]
+                )
 
         print(f"Initialized: {w} Probe layer: {probe_layer}")
         model = GPTforProbing(model_config, probe_layer)
@@ -208,7 +215,9 @@ for probe_layer in range(model_config.n_layer + 1):
                     # Save the model state
                     torch.save(
                         model.state_dict(),
-                        os.path.join(model_dir, f"probe_model_{epoch_num}.pt"),
+                        os.path.join(
+                            model_dir, f"probe_{w}_{probe_layer}_model_{epoch_num}.pt"
+                        ),
                     )
                 #     print(
                 #         f"New best validation loss: {best_val_loss:.4f} at epoch {epoch_num}"
@@ -219,10 +228,10 @@ for probe_layer in range(model_config.n_layer + 1):
                 data_iter = iter(train_loader)
                 batch = next(data_iter)
 
-            except Exception as e:
-                print(f"Error fetching batch: {e}")
-                # skip to next iteration
-                continue
+            # except Exception as e:
+            #     print(f"Error fetching batch: {e}")
+            #     # skip to next iteration
+            #     continue
 
             batch = [t.to(device) for t in batch]
             x, y = batch
@@ -247,7 +256,11 @@ for probe_layer in range(model_config.n_layer + 1):
                 )
 
                 with open(
-                    os.path.join(model_dir, "probe_training_log.csv"), "a", newline=""
+                    os.path.join(
+                        model_dir, f"probe_{w}_{probe_layer}_training_log.csv"
+                    ),
+                    "a",
+                    newline="",
                 ) as f:
                     writer = csv.writer(f)
                     writer.writerow(

@@ -135,9 +135,12 @@ else:
     train_config = Trainer.get_default_config()
     train_config.learning_rate = 3e-4
     train_config.batch_size = 2**12
-    train_config.max_iters = (len(train_dataset) / train_config.batch_size) * 20  # 6000
+    train_config.max_iters = (
+        len(train_dataset) / train_config.batch_size
+    ) * 500  # 6000
     train_config.num_workers = 0  # os.cpu_count()
     train_config.device = "cuda" if torch.cuda.is_available() else "cpu"
+    train_config.model_dir = model_dir
 
     train_config_dict = train_config.to_dict()
 
@@ -198,13 +201,13 @@ def batch_end_callback(trainer):
 trainer.set_callback("on_batch_end", batch_end_callback)
 
 
-def epoch_end_callback(trainer):
-    torch.save(
-        model.state_dict(), os.path.join(model_dir, f"model_{trainer.epoch_num}.pt")
-    )
+# def epoch_end_callback(trainer):
+#     torch.save(
+#         model.state_dict(), os.path.join(model_dir, f"model_{trainer.epoch_num}.pt")
+#     )
 
 
-trainer.set_callback("on_epoch_end", epoch_end_callback)
+# trainer.set_callback("on_epoch_end", epoch_end_callback)
 
 
 # %%

@@ -5,6 +5,7 @@ so nothing in this file really has anything to do with GPT specifically.
 
 import time
 from collections import defaultdict
+import os
 
 import torch
 from torch.utils.data.dataloader import DataLoader
@@ -96,9 +97,6 @@ class Trainer:
             if total_val_samples > 0
             else float("nan")
         )
-        print(
-            f"Validation Loss: {avg_val_loss:.4f}; total_samples: {total_val_samples}; total_loss: {total_val_loss:.4f}"
-        )
 
         val_metrics = {"val_loss": avg_val_loss}
 
@@ -106,14 +104,26 @@ class Trainer:
 
     def _check_early_stopping(self, val_metrics):
         """Helper function to check for early stopping."""
-        if self.val_dataset is not None or self.config.early_stopping_patience <= 0:
+        print(
+            f"Checking early stopping: current_metric_val={self.current_metric_val:.4e}, "
+            f"best_metric_val={self.best_metric_val:.4e}, "
+            f"{val_metrics.get("val_loss", float("inf")):.4e}, "
+            f"patience={self.config.early_stopping_patience}"
+            f"{self.config.early_stopping_patience <= 0} {self.val_dataset is not None}"
+        )
+
+        if self.val_dataset is None or self.config.early_stopping_patience <= 0:
             return  # No validation or early stopping disabled
 
-        self.current_metric_val = val_metrics.get("val_loss", float("nan"))
+        self.current_metric_val = val_metrics.get("val_loss", float("inf"))
 
         improved = False
         if self.current_metric_val < self.best_metric_val:
             improved = True
+            torch.save(
+                self.model.state_dict(),
+                os.path.join(self.config.model_dir, f"model_{self.epoch_num}.pt"),
+            )
 
         if improved:
             self.best_metric_val = self.current_metric_val
@@ -170,8 +180,6 @@ class Trainer:
                 batch = next(data_iter)
             except StopIteration:
 
-                self.epoch_num += 1
-
                 # --- Validation Check ---
                 if val_loader is not None:
                     val_metrics = self._run_validation(val_loader)
@@ -180,10 +188,11 @@ class Trainer:
                     if self.stop_training_flag:
                         break  # Break from the main training loop
 
-                self.trigger_callbacks("on_epoch_end")
+                # self.trigger_callbacks("on_epoch_end")
 
                 data_iter = iter(train_loader)
                 batch = next(data_iter)
+                self.epoch_num += 1
 
             batch = [t.to(self.device) for t in batch]
             x, y = batch
