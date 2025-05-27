@@ -61,13 +61,13 @@ train_dataset = TentDataset(
     type=configs["data_type"],
     in_test=configs["in_test"],
 )
-test_dataset = TentDataset(
-    "test",
-    length=configs["length"],
-    n_iterations=configs["n"],
-    type=configs["data_type"],
-    in_test=configs["in_test"],
-)
+# test_dataset = TentDataset(
+#     "test",
+#     length=configs["length"],
+#     n_iterations=configs["n"],
+#     type=configs["data_type"],
+#     in_test=configs["in_test"],
+# )
 validation_dataset = TentDataset(
     "validation",
     length=configs["length"],
@@ -117,7 +117,7 @@ model = GPT(model_config)
 
 
 print(f"Number of training samples: {len(train_dataset):.3e}")
-print(f"Number of test samples: {len(test_dataset):.3e}")
+# print(f"Number of test samples: {len(test_dataset):.3e}")
 print(f"Number of validation samples: {len(validation_dataset):.3e}")
 
 
@@ -170,8 +170,8 @@ if not os.path.exists(os.path.join(model_dir, "training_log.csv")):
         writer.writerow(
             [
                 "epoch_num",
-                "iter_dt (ms)",
                 "iter_num",
+                "iter_dt (ms)",
                 "train_loss",
                 "current_metric_val",
                 "best_metric_val",
@@ -189,8 +189,8 @@ def batch_end_callback(trainer):
             writer.writerow(
                 [
                     trainer.epoch_num,
-                    trainer.iter_dt * 1000,
                     trainer.iter_num,
+                    trainer.iter_dt * 1000,
                     trainer.loss.item(),
                     trainer.current_metric_val,
                     trainer.best_metric_val,
@@ -209,7 +209,33 @@ trainer.set_callback("on_batch_end", batch_end_callback)
 
 # trainer.set_callback("on_epoch_end", epoch_end_callback)
 
+# %%
 
+# find models matching trainer_config.model_dir + f"model_*.pt"
+import glob
+
+model_files = glob.glob(
+    os.path.join(model_dir, "model_*.pt"),
+)
+if model_files:
+    # load the latest model
+    latest_model_file = max(model_files, key=os.path.getctime)
+    print(f"Loading model from {latest_model_file}")
+    trainer.model.load_state_dict(
+        torch.load(latest_model_file, map_location=train_config.device)
+    )
+
+    trainer.epoch_num = int(
+        int(latest_model_file.split("_")[-1].split(".")[0])
+    )  # extract epoch number from filename
+    print(f"Resuming training from epoch {trainer.epoch_num}")
+else:
+    print("No previous model found, starting training from scratch.")
+    trainer.model.apply(trainer.model._init_weights)
+    torch.save(
+        trainer.model.state_dict(),
+        os.path.join(model_dir, f"model_-1.pt"),
+    )
 # %%
 
 trainer.run()

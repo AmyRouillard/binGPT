@@ -275,19 +275,19 @@ class ProbeDataset(TentDataset):
             in_test=in_test,
         )
 
-        self.n_classes = length  # find the position of the least significant bit
+        self.n_classes = (
+            length + 1
+        )  # find the position of the least significant bit (number of bits + 1 for no bit set)
 
     def __getitem__(self, idx):
 
         inp, sol = self.generate_data_sequence(self.map_idx[idx])
-        cat = torch.cat((inp, sol), dim=0)
 
-        # the inputs to the transformer will be the offset sequence
-        x = cat[:-1].clone()
         # where is x ==1
-        y = (inp == 1).nonzero()[-1].long()
+        y = (inp == 1).nonzero()
+        if y.size(0) > 0:
+            y = y[-1].long()
+        else:
+            y = torch.tensor([self.length], dtype=torch.long)
 
-        # assert x and y have length self.get_block_size()
-        assert x.size(0) == self.get_block_size()
-
-        return x, y
+        return inp, y

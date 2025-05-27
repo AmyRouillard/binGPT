@@ -192,6 +192,7 @@ class Trainer:
 
                 data_iter = iter(train_loader)
                 batch = next(data_iter)
+                self.iter_num = 0
                 self.epoch_num += 1
 
             batch = [t.to(self.device) for t in batch]

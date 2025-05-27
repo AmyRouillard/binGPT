@@ -20,7 +20,7 @@ import csv
 
 wdir = "C:/Users/Amy/Desktop/Green_Git/binGPT/"
 model_dir = wdir + f"models/2025_05_26_16_28/"
-load_epoch = 0
+gpt_load_epoch = 0
 
 
 if os.path.exists(os.path.join(model_dir, "config.json")):
@@ -63,13 +63,13 @@ train_probe = ProbeDataset(
     type=configs["data_type"],
     in_test=configs["in_test"],
 )
-test_probe = ProbeDataset(
-    "test",
-    length=configs["length"],
-    n_iterations=configs["n"],
-    type=configs["data_type"],
-    in_test=configs["in_test"],
-)
+# test_probe = ProbeDataset(
+#     "test",
+#     length=configs["length"],
+#     n_iterations=configs["n"],
+#     type=configs["data_type"],
+#     in_test=configs["in_test"],
+# )
 val_probe = ProbeDataset(
     "validation",
     length=configs["length"],
@@ -81,7 +81,7 @@ val_probe = ProbeDataset(
 n_classes = train_probe.n_classes
 
 print(f"Number of training samples: {len(train_probe):.3e}")
-print(f"Number of test samples: {len(test_probe):.3e}")
+# print(f"Number of test samples: {len(test_probe):.3e}")
 print(f"Number of classes: {n_classes}")
 
 
@@ -127,8 +127,8 @@ for probe_layer in range(model_config.n_layer + 1):
                 writer.writerow(
                     [
                         "epoch_num",
-                        "iter_dt (ms)",
                         "iter_num",
+                        "iter_dt (ms)",
                         "train_loss",
                         "best_val_loss",
                     ]
@@ -139,10 +139,11 @@ for probe_layer in range(model_config.n_layer + 1):
 
         if w == "random":
             # randomly initialize the weights of the model
-            model.apply(model._init_weights)
+            # model.apply(model._init_weights)
+            model.load_state_dict(torch.load(os.path.join(model_dir, f"model_-1.pt")))
         else:
             model.load_state_dict(
-                torch.load(os.path.join(model_dir, f"model_{load_epoch}.pt"))
+                torch.load(os.path.join(model_dir, f"model_{gpt_load_epoch}.pt"))
             )
         model.eval()
 
@@ -165,8 +166,6 @@ for probe_layer in range(model_config.n_layer + 1):
         loss = 0
         # set the optimizer to zero grad
         optimizer.zero_grad()
-        # set the loss function
-        loss_fn = nn.CrossEntropyLoss()
 
         iter_num = 0
         iter_time = time.time()
@@ -227,11 +226,7 @@ for probe_layer in range(model_config.n_layer + 1):
 
                 data_iter = iter(train_loader)
                 batch = next(data_iter)
-
-            # except Exception as e:
-            #     print(f"Error fetching batch: {e}")
-            #     # skip to next iteration
-            #     continue
+                iter_num = 0
 
             batch = [t.to(device) for t in batch]
             x, y = batch
@@ -266,8 +261,8 @@ for probe_layer in range(model_config.n_layer + 1):
                     writer.writerow(
                         [
                             epoch_num,
-                            iter_dt * 1000,
                             iter_num,
+                            iter_dt * 1000,
                             loss.item(),
                             best_val_loss,
                         ]
