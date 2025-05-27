@@ -115,16 +115,7 @@ class TentDataset(Dataset):
         elif self.split == "validation":
             self.map_idx = [i for i in range(len(in_test)) if in_test[i] == "2"]
 
-        # self.token_map = {
-        #     "0": 0,
-        #     "1": 1,
-        #     "$": 2,  # eos
-        #     ">": 3,  # separator
-        #     " ": 4,  # pad
-        # }
         self.vocab_size = 2 if type == "binary" else 10
-
-        # assert len(self.map_idx) == self.__len__()
 
     def __len__(self):
         return len(self.map_idx)
@@ -201,57 +192,19 @@ class TentDataset(Dataset):
         )
 
     def get_block_size(self):
-        # the length of the sequence that will feed into transformer,
-        # containing concatenated input (self._length)
-        # and the output (self._length - self.n_iterations), but -1 because
-        # the transformer starts making predictions at the last input element
-        return self._length * 2 - 1  # - self.n_iterations
+        return self._length
 
     def __getitem__(self, idx):
 
         inp, sol = self.generate_data_sequence(self.map_idx[idx])
 
         if self.tokenized:
-            # concatenate the problem specification and the solution
-            cat = torch.cat((inp, sol), dim=0)
+            assert inp.size(0) == self.get_block_size()
+            assert sol.size(0) == self.get_block_size()
 
-            # the inputs to the transformer will be the offset sequence
-            x = cat[:-1].clone()
-            y = cat[1:].clone()
-            # we only want to predict at output locations, mask out the loss at the input locations
-            y[: self._length - 1] = -1
-
-            # assert x and y have length self.get_block_size()
-            assert x.size(0) == self.get_block_size()
-            assert y.size(0) == self.get_block_size()
-
-            return x, y
+            return inp, sol
         else:
             return inp, sol
-
-
-# class ProbeDataset(TentDataset):
-#     """flip or no-flip: check if the nth bit of batch is 1 or 0"""
-
-#     def __init__(self, split, length=6, n_iterations=1, type="binary"):
-#         super().__init__(split, length, n_iterations, type)
-#         assert split in {"train", "test"}
-
-#         self.n_classes = 2  # flip or no-flip
-
-#     def __getitem__(self, idx):
-
-#         inp, sol = self.generate_data_sequence(self.map_idx[idx])
-#         cat = torch.cat((inp, sol), dim=0)
-
-#         # the inputs to the transformer will be the offset sequence
-#         x = cat[:-1].clone()
-#         y = (x[self.n_iterations] == 1).long()
-
-#         # assert x and y have length self.get_block_size()
-#         assert x.size(0) == self.get_block_size()
-
-#         return x, y
 
 
 class ProbeDataset(TentDataset):
@@ -281,7 +234,7 @@ class ProbeDataset(TentDataset):
 
     def __getitem__(self, idx):
 
-        inp, sol = self.generate_data_sequence(self.map_idx[idx])
+        inp, _ = self.generate_data_sequence(self.map_idx[idx])
 
         # where is x ==1
         y = (inp == 1).nonzero()
@@ -291,3 +244,145 @@ class ProbeDataset(TentDataset):
             y = torch.tensor([self.length], dtype=torch.long)
 
         return inp, y
+
+
+class ProbeDatasetMod(TentDataset):
+    """find the position of the least significant bit in the input sequence"""
+
+    def __init__(
+        self,
+        split,
+        length=6,
+        n_iterations=1,
+        type="binary",
+        tokenized=True,
+        in_test=None,
+        target_step=1,
+    ):
+        super().__init__(
+            split,
+            length,
+            n_iterations,
+            type,
+            tokenized=tokenized,
+            in_test=in_test,
+        )
+
+        self.n_classes = (
+            length + 1
+        )  # find the position of the least significant bit (number of bits + 1 for no bit set)
+
+        self.target_step = target_step
+        self.steps = [i for i in range(-target_step, target_step + 1) if i != 0]
+
+    def generate_modified_data_sequence(self, idx=None):
+
+        if idx is None:
+            # generate some random integers from [0, self.__len__())
+            x = np.random.randint(0, self.__len__())
+        else:
+            x = idx
+
+        # convert x into a binary string
+        x = bin(x)[2:].zfill(self._length)
+
+        ind_least_significant = x.rfind("1")
+        if ind_least_significant == 0:
+            # target_modification = torch.randint(
+            #     low=len(self.steps) // 2, high=len(self.steps), size=1, dtype=torch.long
+            # )
+            idx_mod = np.random.randint(
+                low=len(self.steps) // 2,
+                high=len(self.steps),
+            )
+        elif ind_least_significant == self.length - 1:
+            # idx_mod = torch.randint(
+            #     low=0, high=len(self.steps) // 2, size=1, dtype=torch.long
+            # )
+            idx_mod = np.random.randint(
+                low=0,
+                high=len(self.steps) // 2,
+            )
+        else:
+            # idx_mod = torch.randint(
+            #     low=0, high=len(self.steps) // 2, size=1, dtype=torch.long
+            # )
+            idx_mod = np.random.randint(
+                low=0,
+                high=len(self.steps),
+            )
+
+        ind_least_significant += self.steps[idx_mod]
+        # clamp the index to be within the bounds of the string
+        ind_least_significant = max(-1, min(ind_least_significant, self._length - 1))
+        x0 = [ind_least_significant if ind_least_significant >= 0 else self.length]
+
+        x_tmp = [x]
+        for _ in range(self.n_iterations):
+
+            if ind_least_significant == -1:
+                # if ind_least_significant == -1, then x is zero, which remains zero
+                y = "0" * self._length
+            elif ind_least_significant == 0:
+                # if ind_least_significant == 0, then x is 1/2, which becomes 1
+                y = "1" * self._length
+                ind_least_significant = -1
+            else:
+                # if ind_least_significant > 0 then follow the usual rule
+                flip = False if x_tmp[-1][0] == "0" else True
+                if flip:
+                    y = ""
+                    for t in x_tmp[-1][1:ind_least_significant]:
+                        y += "1" if t == "0" else "0"
+                else:
+                    y = x_tmp[-1][1:ind_least_significant]
+
+                # TODO: ignore later bits - set to zero? or keep them?
+                y += x_tmp[-1][ind_least_significant:]
+                y += "0"  # pad y with a zero
+                # y += "0" * (len(x_tmp[-1][ind_least_significant:]) + 1)
+                ###
+
+                ind_least_significant -= 1
+
+            x_tmp.append(y)
+
+        # x0 = x_tmp[0]
+        x1 = x_tmp[-1]
+
+        # x0 = [int(d) for d in x0]
+        x1 = [int(d) for d in x1]
+
+        # if self.type == "decimal":
+
+        #     x0 = sum([d / 2**i / 2 for i, d in enumerate(x0)])
+        #     x1 = sum([d / 2**i / 2 for i, d in enumerate(x1)])
+
+        #     if self.tokenized:
+        #         x0 = format(x0, f".{self.length}f")[2:]
+        #         x1 = format(x1, f".{self.length}f")[2:]
+        #         x0 = [int(d) for d in x0]
+        #         x1 = [int(d) for d in x1]
+        #     else:
+        #         x0 = [x0]
+        #         x1 = [x1]
+
+        # convert to torch tensors
+        return (
+            torch.tensor(x0),  # , dtype=torch.long
+            torch.tensor(x1),  # , dtype=torch.long
+        )
+
+    def __getitem__(self, idx):
+
+        inp, out = self.generate_data_sequence(self.map_idx[idx])
+        y_mod, out_mod = self.generate_modified_data_sequence(self.map_idx[idx])
+
+        # where is x ==1
+        y = (inp == 1).nonzero()
+        if y.size(0) > 0:
+            y = y[-1].long()
+        else:
+            y = torch.tensor([self.length], dtype=torch.long)
+
+        return inp, y, y_mod, out, out_mod

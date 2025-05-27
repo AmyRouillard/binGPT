@@ -4,7 +4,7 @@ import time
 import os
 import numpy as np
 from utils.tentmapdataset import TentDataset
-from mingpt.model import GPT
+from mingpt.encoderonly import EncoderOnlyTransformer
 from mingpt.utils import CfgNode as CN
 import json
 from mingpt.trainer import Trainer
@@ -83,6 +83,7 @@ if os.path.exists(os.path.join(model_dir, "model_config.json")):
     with open(os.path.join(model_dir, "model_config.json"), "r") as f:
         model_config_dict = json.load(f)
 else:
+
     # create model_config_dict
     model_config_dict = {
         "n_layer": 4,
@@ -94,8 +95,10 @@ else:
         "embd_pdrop": 0.1,
         "attn_pdrop": 0.1,
         "resid_pdrop": 0.1,
+        "output_vocab_size": None,
+        "pad_token_id": None,
     }
-    # OTHELLO
+    # OTHELLO FOR COMPARISON
     # model_config_dict = {
     #     "n_layer": 8,
     #     "n_head": 8,
@@ -113,7 +116,7 @@ else:
 
 
 model_config = CN(**model_config_dict)
-model = GPT(model_config)
+model = EncoderOnlyTransformer(model_config)
 
 
 print(f"Number of training samples: {len(train_dataset):.3e}")
@@ -226,7 +229,7 @@ if model_files:
     )
 
     trainer.epoch_num = int(
-        int(latest_model_file.split("_")[-1].split(".")[0])
+        int(latest_model_file.split("_")[-1].split(".")[0]) + 1
     )  # extract epoch number from filename
     print(f"Resuming training from epoch {trainer.epoch_num}")
 else:

@@ -2,7 +2,7 @@
 
 import os
 from utils.tentmapdataset import TentDataset
-from mingpt.model import GPT
+from mingpt.encoderonly import EncoderOnlyTransformer
 from mingpt.utils import CfgNode as CN
 import json
 import torch
@@ -11,10 +11,10 @@ import numpy as np
 
 # %%
 
-wdir = "C:/Users/Amy/Desktop/Green_Git/binGPT/"
-model_dir = wdir + f"models/2025_05_26_16_28/"
+wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/"
+model_dir = wdir + f"models/2025_05_27_13_41/"
 gpt_load_epoch = 0
-eval_dir = model_dir + f"eval_{gpt_load_epoch}/"
+
 
 # model_dir = wdir + "models/binary_2025_04_23_13_02"
 
@@ -58,7 +58,7 @@ else:
     raise ValueError("No model_config.json found in model_dir, using default configs.")
 
 model_config = CN(**model_config_dict)
-model = GPT(model_config)
+model = EncoderOnlyTransformer(model_config)
 
 
 print(f"Number of training samples: {len(train_dataset):.3e}")
@@ -87,14 +87,14 @@ model.to(device)  # Move model to the appropriate device
 
 train_loader = DataLoader(
     train_dataset + validation_dataset,
-    shuffle=True,  # Shuffle training data
+    shuffle=True,
     pin_memory=True,
     batch_size=batch_size,
 )
 
 test_loader = DataLoader(
     test_dataset,
-    shuffle=False,  # No need to shuffle test data
+    shuffle=True,
     pin_memory=True,
     batch_size=batch_size,
 )
@@ -111,13 +111,10 @@ def evaluate_model(model, data_loader, save_path=None):
             x, y = batch
             x, y = x.to(device), y.to(device)
 
-            inp = x[:, : configs["length"]]
-            sol = y[:, -configs["length"] :]
+            y_pred = model.generate(x)
+            y_pred = y_pred.view(y_pred.size(0), -1)  # Flatten the predictions
 
-            cat = model.generate(inp, configs["length"], do_sample=False)
-            sol_candidate = cat[:, configs["length"] :]
-
-            tmp = (sol == sol_candidate).all(1).cpu()
+            tmp = (y == y_pred).all(1).cpu()
 
             correct += tmp.sum().item()
             total += tmp.size(0)
@@ -126,15 +123,15 @@ def evaluate_model(model, data_loader, save_path=None):
                 # save inp, sol, and sol_candidate to npy arrays
                 np.save(
                     os.path.join(save_path, f"batch_{i}_inp.npy"),
-                    inp.cpu().numpy(),
+                    x.cpu().numpy(),
                 )
                 np.save(
                     os.path.join(save_path, f"batch_{i}_sol.npy"),
-                    sol.cpu().numpy(),
+                    y.cpu().numpy(),
                 )
                 np.save(
                     os.path.join(save_path, f"batch_{i}_pred.npy"),
-                    sol_candidate.cpu().numpy(),
+                    y_pred.cpu().numpy(),
                 )
 
     accuracy = correct / total if total > 0 else 0
@@ -143,8 +140,7 @@ def evaluate_model(model, data_loader, save_path=None):
 
 # %%
 
-
-# %%
+eval_dir = model_dir + f"eval_{gpt_load_epoch}/"
 # Evaluate on training + validation dataset
 if not os.path.exists(eval_dir + "train_val/"):
     os.makedirs(eval_dir + "train_val/")
@@ -165,7 +161,7 @@ results = {
     "test_accuracy": test_accuracy,
 }
 
-results_path = os.path.join(model_dir, "model_evaluation_results.json")
+results_path = os.path.join(eval_dir, "model_eval_sresults.json")
 with open(results_path, "w") as f:
     json.dump(results, f, indent=4)
 

@@ -1,9 +1,9 @@
 # %%
 
 from utils.tentmapdataset import ProbeDataset
-from mingpt.model import GPTforProbing, Probe
+from mingpt.model import Probe
+from mingpt.encoderonly import EncoderOnlyTransformerForProbing
 
-import torch.nn as nn
 import torch.optim as optim
 import os
 import json
@@ -18,19 +18,16 @@ import csv
 
 # %%
 
-wdir = "C:/Users/Amy/Desktop/Green_Git/binGPT/"
-model_dir = wdir + f"models/2025_05_26_16_28/"
+wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/"
+model_dir = wdir + f"models/2025_05_27_13_41/"
 gpt_load_epoch = 0
-
 
 if os.path.exists(os.path.join(model_dir, "config.json")):
     # read json file
     with open(os.path.join(model_dir, "config.json"), "r") as f:
         configs = json.load(f)
 else:
-
     raise ValueError("No config.json found in model_dir, using default configs.")
-
 
 # check if config.json exist in model_dir, if not create it
 if os.path.exists(os.path.join(model_dir, "model_config.json")):
@@ -108,12 +105,11 @@ val_loader = DataLoader(
     batch_size=batch_size,
 )
 
-best_val_loss = float("inf")
-best_epoch = 0
 
+early_stopping_patience = 4
 
 for probe_layer in range(model_config.n_layer + 1):
-    for w in ["random"]:  # , "trained"]:
+    for w in ["random", "trained"]:
 
         if not os.path.exists(
             os.path.join(model_dir, f"probe_{w}_{probe_layer}_training_log.csv")
@@ -135,7 +131,7 @@ for probe_layer in range(model_config.n_layer + 1):
                 )
 
         print(f"Initialized: {w} Probe layer: {probe_layer}")
-        model = GPTforProbing(model_config, probe_layer)
+        model = EncoderOnlyTransformerForProbing(model_config, probe_layer)
 
         if w == "random":
             # randomly initialize the weights of the model
@@ -171,7 +167,10 @@ for probe_layer in range(model_config.n_layer + 1):
         iter_time = time.time()
         data_iter = iter(train_loader)
         epoch_num = 0
-        while epoch_num < 10:
+        stop_training_flag = False
+        best_val_loss = float("inf")
+        best_epoch = 0
+        while epoch_num < 100:
 
             # fetch the next batch (x, y) and re-init iterator if needed
             try:
@@ -179,7 +178,6 @@ for probe_layer in range(model_config.n_layer + 1):
                 # print("loaded batch")
             except StopIteration:
 
-                epoch_num += 1
                 probe.eval()
                 # --- Validation Check ---
                 total_val_loss = 0.0
@@ -208,25 +206,56 @@ for probe_layer in range(model_config.n_layer + 1):
                     else float("nan")
                 )
 
+                improved = False
                 if avg_val_loss < best_val_loss:
+                    improved = True
                     best_val_loss = avg_val_loss
                     best_epoch = epoch_num
                     # Save the model state
                     torch.save(
-                        model.state_dict(),
+                        probe.state_dict(),
                         os.path.join(
-                            model_dir, f"probe_{w}_{probe_layer}_model_{epoch_num}.pt"
+                            model_dir,
+                            f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}_epoch_{epoch_num}.pt",
                         ),
                     )
-                #     print(
-                #         f"New best validation loss: {best_val_loss:.4f} at epoch {epoch_num}"
-                #     )
-                # else:
-                #     print(f"Epoch {epoch_num} - Validation Loss: {avg_val_loss:.4f}")
+
+                with open(
+                    os.path.join(
+                        model_dir, f"probe_{w}_{probe_layer}_training_log.csv"
+                    ),
+                    "a",
+                    newline="",
+                ) as f:
+                    writer = csv.writer(f)
+                    writer.writerow(
+                        [
+                            epoch_num,
+                            iter_num,
+                            iter_dt * 1000,
+                            loss.item(),
+                            best_val_loss,
+                        ]
+                    )
+
+                if improved:
+                    patience_counter = 0
+                else:
+                    patience_counter += 1
+
+                    if patience_counter >= early_stopping_patience:
+                        stop_training_flag = True
 
                 data_iter = iter(train_loader)
                 batch = next(data_iter)
                 iter_num = 0
+                epoch_num += 1
+
+            if stop_training_flag:
+                print(
+                    f"Stopping training for Probe {w} Layer {probe_layer} at epoch {epoch_num} due to early stopping."
+                )
+                break
 
             batch = [t.to(device) for t in batch]
             x, y = batch

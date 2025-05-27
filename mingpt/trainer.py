@@ -185,8 +185,9 @@ class Trainer:
                     val_metrics = self._run_validation(val_loader)
                     # --- Early Stopping Check ---
                     self._check_early_stopping(val_metrics)
-                    if self.stop_training_flag:
-                        break  # Break from the main training loop
+
+                if self.stop_training_flag:
+                    break  # Break from the main training loop
 
                 # self.trigger_callbacks("on_epoch_end")
 
@@ -194,6 +195,9 @@ class Trainer:
                 batch = next(data_iter)
                 self.iter_num = 0
                 self.epoch_num += 1
+
+            if self.stop_training_flag:
+                break
 
             batch = [t.to(self.device) for t in batch]
             x, y = batch
@@ -213,11 +217,6 @@ class Trainer:
 
             self.trigger_callbacks("on_batch_end")
             self.iter_num += 1
-
-            if (
-                self.stop_training_flag
-            ):  # Check after each iteration as well, e.g. if max_iters hit
-                break
 
             # termination conditions
             if config.max_iters is not None and self.iter_num >= config.max_iters:

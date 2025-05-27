@@ -1,9 +1,10 @@
 # %%
 
 from utils.tentmapdataset import ProbeDataset
-from mingpt.model import GPTforProbing, Probe
+from mingpt.model import Probe
+from mingpt.encoderonly import EncoderOnlyTransformerForProbing
 
-import torch.nn as nn
+from torch.nn import functional as F
 import torch.optim as optim
 import os
 import json
@@ -19,8 +20,8 @@ import numpy as np
 
 # %%
 
-wdir = "C:/Users/Amy/Desktop/Green_Git/binGPT/"
-model_dir = wdir + f"models/2025_05_26_16_28/"
+wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/"
+model_dir = wdir + f"models/2025_05_27_13_41/"
 gpt_load_epoch = 0
 
 
@@ -29,7 +30,6 @@ if os.path.exists(os.path.join(model_dir, "config.json")):
     with open(os.path.join(model_dir, "config.json"), "r") as f:
         configs = json.load(f)
 else:
-
     raise ValueError("No config.json found in model_dir, using default configs.")
 
 
@@ -99,12 +99,14 @@ def evaluate_probe(model, probe, data_loader, device, save_path=None):
             inputs, targets = batch
             inputs = inputs.to(device)
             targets = targets.to(device)
+            targets = targets.view(targets.size()[:-1], -1)
 
             x = model.forward_1of2(inputs)
             outputs, _ = probe.forward(x.view(x.size(0), -1))
-            _, predicted = torch.max(outputs, 1)
+            probs = F.softmax(outputs, dim=-1)
+            _, predicted = torch.max(probs, dim=-1)
 
-            total_correct += (predicted == targets).sum().item()
+            total_correct += (predicted == targets).cpu().sum().item()
             total_samples += targets.size(0)
 
             if save_path is not None:
@@ -146,25 +148,25 @@ test_loader = DataLoader(
 best_epoch = {
     "random": {
         0: 0,
-        1: 0,
-        2: 0,
-        3: 0,
-        4: 0,
+        # 1: 0,
+        # 2: 0,
+        # 3: 0,
+        # 4: 0,
     },
     "trained": {
         0: 0,
-        1: 0,
-        2: 0,
-        3: 0,
-        4: 0,
+        # 1: 0,
+        # 2: 0,
+        # 3: 0,
+        # 4: 0,
     },
 }
 
 for probe_layer in range(model_config.n_layer + 1):
-    for w in ["random"]:  # , "trained"]:
+    for w in ["random", "trained"]:
 
         print(f"Initialized: {w} Probe layer: {probe_layer}")
-        model = GPTforProbing(model_config, probe_layer)
+        model = EncoderOnlyTransformerForProbing(model_config, probe_layer)
 
         if w == "random":
             # randomly initialize the weights of the model
@@ -186,7 +188,8 @@ for probe_layer in range(model_config.n_layer + 1):
         )
 
         probe_path = os.path.join(
-            model_dir, f"probe_{w}_{probe_layer}_model_{best_epoch[w][probe_layer]}.pt"
+            model_dir,
+            f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}_epoch_{best_epoch[w][probe_layer]}.pt",
         )
         if os.path.exists(probe_path):
             print(f"Loading probe from {probe_path}")
@@ -201,7 +204,10 @@ for probe_layer in range(model_config.n_layer + 1):
         probe.eval()
         model.eval()
 
-        eval_dir = model_dir + f"eval_{gpt_load_epoch}_{w}_{probe_layer}/"
+        eval_dir = (
+            model_dir
+            + f"eval_model_{gpt_load_epoch}_probe_{w}_{probe_layer}_epoch_{best_epoch[w][probe_layer]}/"
+        )
 
         # Evaluate the probe on the test set
         if not os.path.exists(eval_dir + "train_val/"):

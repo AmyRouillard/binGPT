@@ -1,9 +1,11 @@
 # %%
 
-from utils.tentmapdataset import ProbeDataset
-from mingpt.model import GPTforProbing, Probe
+from utils.tentmapdataset import ProbeDatasetMod
+from mingpt.model import Probe
+from mingpt.encoderonly import EncoderOnlyTransformerForProbing
 
-import torch.nn as nn
+from torch.nn import functional as F
+from torch.nn import CrossEntropyLoss
 import torch.optim as optim
 import os
 import json
@@ -19,8 +21,8 @@ import numpy as np
 
 # %%
 
-wdir = "C:/Users/Amy/Desktop/Green_Git/binGPT/"
-model_dir = wdir + f"models/2025_05_26_16_28/"
+wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/"
+model_dir = wdir + f"models/2025_05_27_13_41/"
 gpt_load_epoch = 0
 
 
@@ -57,21 +59,21 @@ model_config = CN(**model_config_dict)
 
 # %%
 
-train_probe = ProbeDataset(
+train_probe = ProbeDatasetMod(
     "train",
     length=configs["length"],
     n_iterations=configs["n"],
     type=configs["data_type"],
     in_test=configs["in_test"],
 )
-test_probe = ProbeDataset(
+test_probe = ProbeDatasetMod(
     "test",
     length=configs["length"],
     n_iterations=configs["n"],
     type=configs["data_type"],
     in_test=configs["in_test"],
 )
-val_probe = ProbeDataset(
+val_probe = ProbeDatasetMod(
     "validation",
     length=configs["length"],
     n_iterations=configs["n"],
@@ -95,14 +97,14 @@ batch_size = 2**15  # train_config.batch_size
 
 train_loader = DataLoader(
     train_probe + val_probe,
-    shuffle=False,
+    shuffle=True,
     pin_memory=True,
     batch_size=batch_size,
 )
 
 test_loader = DataLoader(
     test_probe,
-    shuffle=False,  # No need to shuffle validation data
+    shuffle=True,  # No need to shuffle validation data
     pin_memory=True,
     batch_size=batch_size,
 )
@@ -110,17 +112,17 @@ test_loader = DataLoader(
 best_epoch = {
     "random": {
         0: 0,
-        1: 0,
-        2: 0,
-        3: 0,
-        4: 0,
+        # 1: 0,
+        # 2: 0,
+        # 3: 0,
+        # 4: 0,
     },
     "trained": {
         0: 0,
-        1: 0,
-        2: 0,
-        3: 0,
-        4: 0,
+        # 1: 0,
+        # 2: 0,
+        # 3: 0,
+        # 4: 0,
     },
 }
 
@@ -129,10 +131,10 @@ steps = [i for i in range(-target_step, target_step + 1) if i != 0]
 steps = torch.tensor(steps, device=device)
 
 for probe_layer in range(model_config.n_layer + 1):
-    for w in ["random"]:  # , "trained"]:
+    for w in ["random", "trained"]:
 
         print(f"Initialized: {w} Probe layer: {probe_layer}")
-        model = GPTforProbing(model_config, probe_layer)
+        model = EncoderOnlyTransformerForProbing(model_config, probe_layer)
 
         if w == "random":
             # randomly initialize the weights of the model
@@ -142,7 +144,6 @@ for probe_layer in range(model_config.n_layer + 1):
             model.load_state_dict(
                 torch.load(os.path.join(model_dir, f"model_{gpt_load_epoch}.pt"))
             )
-        model.eval()
 
         input_dim = model.transformer.wpe.weight.shape
         # multiply elements of input_dim
@@ -154,7 +155,8 @@ for probe_layer in range(model_config.n_layer + 1):
         )
 
         probe_path = os.path.join(
-            model_dir, f"probe_{w}_{probe_layer}_model_{best_epoch[w][probe_layer]}.pt"
+            model_dir,
+            f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}_epoch_{best_epoch[w][probe_layer]}.pt",
         )
         if os.path.exists(probe_path):
             print(f"Loading probe from {probe_path}")
@@ -171,73 +173,66 @@ for probe_layer in range(model_config.n_layer + 1):
         out_dir = model_dir + f"modified_{gpt_load_epoch}_{w}_{probe_layer}/"
 
         for i, batch in enumerate(train_loader):
-            inputs, targets = batch
+            inputs, targets, targets_mod, true_out, true_out_mod = batch
             inputs = inputs.to(device)
             targets = targets.to(device)
 
-            # target modification is a random choice from steps of shape targets
-            target_modification = torch.randint(
-                low=0, high=len(steps), size=targets.shape
-            )
-            # check if targets == 0 or n_classes - 1
-            target_modification[targets == 0] = torch.randint(
-                low=0,
-                high=len(steps) // 2,
-                size=targets[targets == 0].shape,
-            )
-            target_modification[targets == n_classes - 1] = torch.randint(
-                low=len(steps) // 2,
-                high=len(steps),
-                size=targets[targets == n_classes - 1].shape,
-            )
-            # modify targets
-            targets_modified = targets + steps[target_modification]
-            # check that targets are in range [0, n_classes - 1] else raise ValueError
-            if not torch.all((targets >= 0) & (targets < n_classes)):
-                raise ValueError(
-                    f"Modified targets out of range: {targets[~((targets >= 0) & (targets < n_classes))]}"
-                )
-
             x = model.forward_1of2(inputs)
-            y_pred, _ = model.forward_2of2(x)
+            logits = model.forward_2of2(x)
+            probs = F.softmax(logits, dim=-1)
+            y_pred = torch.argmax(probs, dim=-1)
 
             # modify x so that probe predicts modified targets
             x_tmp = x.view(x.size(0), -1).clone()
-            optimizer = optim.Adam(x_tmp, lr=3e-4)
-            loss_fn = nn.CrossEntropyLoss()
-            if _ in range(100):
+            # convert x_tmp to something that can be optimized
+            x_tmp = torch.nn.Parameter(x_tmp, requires_grad=True)
+
+            optimizer = optim.Adam([x_tmp], lr=3e-4)
+            for _ in range(100):
                 # TODO: implement a better way to modify x
                 # TODO: early stopping if loss does not decrease
 
                 # set the optimizer to zero grad
                 optimizer.zero_grad()
                 outputs, _ = probe.forward(x_tmp)
-                loss = loss_fn(outputs, targets_modified)
+                loss = F.cross_entropy(
+                    outputs.view(-1, outputs.size(-1)), targets_mod.view(-1)
+                )
                 loss.backward()
                 optimizer.step()
                 # update x with the modified x_tmp
 
-            y_pred_mod, _ = model.forward_2of2(x_tmp.view(x.size(0), *x.size()[1:]))
+            logits = model.forward_2of2(x_tmp.view(x.size(0), *x.size()[1:]))
+            probs_mod = F.softmax(logits, dim=-1)
+            y_pred_mod = torch.argmax(probs_mod, dim=-1)
 
             # save target, predictions, modified target, and modified predictions as numpy arrays
             if not os.path.exists(out_dir):
                 os.makedirs(out_dir)
 
             np.save(
-                os.path.join(out_dir, f"batch_{i}_target.npy"),
+                os.path.join(out_dir, f"batch_{i}_target_idx.npy"),
                 targets.cpu().numpy(),
+            )
+            np.save(
+                os.path.join(out_dir, f"batch_{i}_true_pred.npy"),
+                true_out.cpu().numpy(),
             )
             np.save(
                 os.path.join(out_dir, f"batch_{i}_pred.npy"),
                 y_pred.cpu().numpy(),
             )
             np.save(
-                os.path.join(out_dir, f"batch_{i}_target_mod.npy"),
-                targets_modified.cpu().numpy(),
+                os.path.join(out_dir, f"batch_{i}_target_idx_mod.npy"),
+                targets_mod.cpu().numpy(),
             )
             np.save(
                 os.path.join(out_dir, f"batch_{i}_pred_mod.npy"),
                 y_pred_mod.cpu().numpy(),
+            )
+            np.save(
+                os.path.join(out_dir, f"batch_{i}_true_pred_mod.npy"),
+                true_out_mod.cpu().numpy(),
             )
 
 

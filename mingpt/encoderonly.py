@@ -130,6 +130,7 @@ class EncoderOnlyTransformer(nn.Module):
         C.embd_pdrop = 0.1
         C.resid_pdrop = 0.1
         C.attn_pdrop = 0.1
+
         return C
 
     def __init__(self, config):
@@ -140,7 +141,7 @@ class EncoderOnlyTransformer(nn.Module):
 
         self.config = config  # Save config
 
-        if config.output_vocab_size is None:
+        if config.to_dict().get("output_vocab_size", None) is None:
             config.output_vocab_size = (
                 config.vocab_size
             )  # Default output vocab to input vocab
@@ -204,9 +205,9 @@ class EncoderOnlyTransformer(nn.Module):
         n_params_transformer = sum(p.numel() for p in self.transformer.parameters())
         n_params_head = sum(p.numel() for p in self.lm_head.parameters())
         total_params = n_params_transformer + n_params_head
-        print(f"number of transformer parameters: {n_params_transformer/1e6:.2f}M")
-        print(f"number of prediction head parameters: {n_params_head/1e6:.2f}M")
-        print(f"total number of parameters: {total_params/1e6:.2f}M")
+        print(f"number of transformer parameters: {n_params_transformer:.3e}")
+        print(f"number of prediction head parameters: {n_params_head:.3e}")
+        print(f"total number of parameters: {total_params:.3e}")
 
     def _init_weights(self, module):
         if isinstance(module, nn.Linear):
@@ -320,14 +321,52 @@ class EncoderOnlyTransformer(nn.Module):
         loss = None
         if targets is not None:
             # For N-to-N, targets are (b, t)
+            ignore_index = getattr(self.config, "pad_token_id", -100)
+            if ignore_index is None:
+                ignore_index = -100
+
             loss = F.cross_entropy(
                 logits.view(-1, logits.size(-1)),
                 targets.view(-1),
-                ignore_index=getattr(self.config, "pad_token_id", -100),
+                ignore_index=ignore_index,
             )
             # Use pad_token_id for ignore_index if available, otherwise common -100
 
         return logits, loss
+
+    @torch.no_grad()
+    def generate(self, idx, temperature=1.0, do_sample=False, top_k=None):
+
+        assert (
+            idx.size(1) == self.block_size
+        ), f"Cannot generate sequence of length {idx.size(1)}, block size is {self.block_size}"
+
+        # forward the model to get the logits for the index in the sequence
+        logits, _ = self(idx)
+
+        # scale the logits by temperature
+        logits = logits / temperature
+
+        # optionally crop the logits to only the top k options
+        if top_k is not None:
+            # get the top k logits and their indices
+            _, top_k_indices = torch.topk(logits, k=top_k, dim=-1)
+            # create a mask for the rest of the logits
+            mask = torch.ones_like(logits, dtype=torch.bool)
+            mask.scatter_(dim=-1, index=top_k_indices, value=False)
+            # set the rest of the logits to -inf
+            logits.masked_fill_(mask, float("-inf"))
+            # now logits only contain the top k options
+
+        # apply softmax to convert logits to (normalized) probabilities
+        probs = F.softmax(logits, dim=-1)
+        # either sample from the distribution or take the most likely element
+        if do_sample:
+            idx_next = torch.multinomial(probs, num_samples=1)
+        else:
+            _, idx_next = torch.topk(probs, k=1, dim=-1)
+
+        return idx_next
 
 
 class EncoderOnlyTransformerForProbing(EncoderOnlyTransformer):
@@ -344,7 +383,7 @@ class EncoderOnlyTransformerForProbing(EncoderOnlyTransformer):
         assert probe_layer >= 0, f"probe_layer  {probe_layer } is out of range"
 
     @torch.no_grad()
-    def forward_1of2(self, idx):
+    def forward_1of2(self, idx, attention_mask=None):
         device = idx.device
         b, t = idx.size()
         assert (
@@ -380,27 +419,17 @@ class EncoderOnlyTransformerForProbing(EncoderOnlyTransformer):
         x = self.transformer.drop(tok_emb + pos_emb)
 
         for block in self.transformer.h[: self.probe_layer]:
-            x = block(x)  # TODO deeper into the block?
+            x = block(x, attention_mask=attention_mask)  # TODO deeper into the block?
 
         return x
 
     @torch.no_grad()
-    def forward_2of2(self, x, targets=None):
+    def forward_2of2(self, x, attention_mask=None):
 
         for block in self.transformer.h[self.probe_layer :]:
-            x = block(x)  # TODO deeper into the block?
+            x = block(x, attention_mask=attention_mask)  # TODO deeper into the block?
 
         x = self.transformer.ln_f(x)  # (b, t, n_embd)
         logits = self.lm_head(x)  # (b, t, output_vocab_size)
 
-        loss = None
-        if targets is not None:
-            # For N-to-N, targets are (b, t)
-            loss = F.cross_entropy(
-                logits.view(-1, logits.size(-1)),
-                targets.view(-1),
-                ignore_index=getattr(self.config, "pad_token_id", -100),
-            )
-            # Use pad_token_id for ignore_index if available, otherwise common -100
-
-        return logits, loss
+        return logits
