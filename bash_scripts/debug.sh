@@ -1,13 +1,13 @@
 #!/bin/bash
 #PBS -N EOT_debug
-#PBS -q gpu_2
+#PBS -q gpu_1
 #PBS -l select=1:ncpus=4:ngpus=1:mem=16gb
 #PBS -l walltime=00:10:00
-#PBS -o /mnt/lustre/users/arouillard/results/qft_24/reports/output_qft_debug.log
-#PBS -e /mnt/lustre/users/arouillard/results/qft_24/reports/error_qft_debug.log
+#PBS -o /mnt/lustre/users/arouillard/debug_out.log
+#PBS -e /mnt/lustre/users/arouillard/debug_error.log
 #PBS -P PHYS1216
 #PBS -M "rouillardamy@gmail.com"
-#PBS -m bea
+#PBS -m be
 
 module add chpc/BIOMODULES
 module load python/0.3.12.2

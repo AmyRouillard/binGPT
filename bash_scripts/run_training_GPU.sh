@@ -3,8 +3,8 @@
 #PBS -q serial
 #PBS -l select=1:ncpus=24
 #PBS -l walltime=10:00:00
-#PBS -o /mnt/lustre/users/arouillard/results/qft_24/reports/output_qft_n24_j0.log
-#PBS -e /mnt/lustre/users/arouillard/results/qft_24/reports/error_qft_n24_j0.log
+#PBS -o /mnt/lustre/users/arouillard/EOT_out.log
+#PBS -e /mnt/lustre/users/arouillard/EOT_error.log
 #PBS -P PHYS1216
 #PBS -M "rouillardamy@gmail.com"
 #PBS -m be
