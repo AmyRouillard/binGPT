@@ -18,7 +18,7 @@ import csv
 
 # %%
 
-wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/"
+wdir = "/home/arouillard/lustre/project-files/"  # "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/"
 model_dir = wdir + f"models/2025_05_27_13_41/"
 gpt_load_epoch = 0
 

@@ -20,7 +20,7 @@ import numpy as np
 
 # %%
 
-wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/"
+wdir = "/home/arouillard/lustre/project-files/"  # "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/"
 model_dir = wdir + f"models/2025_05_27_13_41/"
 gpt_load_epoch = 0
 
@@ -210,18 +210,18 @@ for probe_layer in range(model_config.n_layer + 1):
         )
 
         # Evaluate the probe on the test set
-        if not os.path.exists(eval_dir + "train_val/"):
-            os.makedirs(eval_dir + "train_val/")
+        if not os.path.exists(eval_dir + "test/"):
+            os.makedirs(eval_dir + "test/")
         test_accuracy = evaluate_probe(
-            model, probe, test_loader, device, eval_dir + "train_val/"
+            model, probe, test_loader, device, eval_dir + "test/"
         )
         print(f"Test accuracy for {w} probe layer {probe_layer}: {test_accuracy:.4f}")
         # Evaluate the probe on the training set
 
-        if not os.path.exists(eval_dir + "train/"):
-            os.makedirs(eval_dir + "train/")
+        if not os.path.exists(eval_dir + "train_val/"):
+            os.makedirs(eval_dir + "train_val/")
         train_accuracy = evaluate_probe(
-            model, probe, train_loader, device, eval_dir + "train/"
+            model, probe, train_loader, device, eval_dir + "train_val/"
         )
         print(f"Train accuracy for {w} probe layer {probe_layer}: {train_accuracy:.4f}")
 
