@@ -78,7 +78,7 @@ val_probe = ProbeDataset(
 n_classes = train_probe.n_classes
 
 print(f"Number of training samples: {len(train_probe):.3e}")
-# print(f"Number of test samples: {len(test_probe):.3e}")
+print(f"Number of validation samples: {len(val_probe):.3e}")
 print(f"Number of classes: {n_classes}")
 
 
@@ -113,15 +113,24 @@ for probe_layer in range(model_config.n_layer + 1):
     for w in ["random", "trained"]:
 
         if not os.path.exists(
+            os.path.join(model_dir, f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}")
+        ):
+            os.makedirs(
+                os.path.join(
+                    model_dir, f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}"
+                )
+            )
+
+        if not os.path.exists(
             os.path.join(
                 model_dir,
-                f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}_training_log.csv",
+                f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}/training_log.csv",
             )
         ):
             with open(
                 os.path.join(
                     model_dir,
-                    f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}_training_log.csv",
+                    f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}/training_log.csv",
                 ),
                 "w",
                 newline="",
@@ -210,7 +219,7 @@ for probe_layer in range(model_config.n_layer + 1):
                             0
                         )  # Weighted by batch size
                         total_val_samples += x.size(0)
-                        accuracy += (logits.argmax(dim=1) == y).sum().item()
+                        accuracy += (logits.argmax(dim=-1) == y).sum().item()
                         # Example for accuracy:
                         # _, predicted = torch.max(logits, 1)
                         # correct_predictions += (predicted == y).sum().item()
@@ -238,7 +247,7 @@ for probe_layer in range(model_config.n_layer + 1):
                         probe.state_dict(),
                         os.path.join(
                             model_dir,
-                            f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}_epoch_{epoch_num}.pt",
+                            f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}/epoch_{epoch_num}.pt",
                         ),
                     )
 
@@ -258,7 +267,7 @@ for probe_layer in range(model_config.n_layer + 1):
                 with open(
                     os.path.join(
                         model_dir,
-                        f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}_training_log.csv",
+                        f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}/training_log.csv",
                     ),
                     "a",
                     newline="",
@@ -305,7 +314,7 @@ for probe_layer in range(model_config.n_layer + 1):
                 with open(
                     os.path.join(
                         model_dir,
-                        f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}_training_log.csv",
+                        f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}/training_log.csv",
                     ),
                     "a",
                     newline="",
