@@ -184,7 +184,7 @@ for probe_layer in range(model_config.n_layer + 1):
         probe.to(device)
 
         # set the optimizer
-        optimizer = optim.Adam(probe.parameters(), lr=1e-0)
+        optimizer = optim.Adam(probe.parameters(), lr=1e-2)
 
         # set the optimizer to zero grad
         optimizer.zero_grad()
@@ -256,7 +256,7 @@ for probe_layer in range(model_config.n_layer + 1):
                         ),
                     )
 
-                if improved:
+                if improved or accuracy == 1.0:
                     patience_counter = 0
                 else:
                     patience_counter += 1

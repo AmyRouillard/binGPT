@@ -416,7 +416,8 @@ class EncoderOnlyTransformerForProbing(EncoderOnlyTransformer):
         pos_emb = self.transformer.wpe(
             pos
         )  # position embeddings of shape (1, t, n_embd)
-        x = self.transformer.drop(tok_emb + pos_emb)
+        # x = self.transformer.drop(tok_emb + pos_emb)
+        x = tok_emb + pos_emb  # model only used for evaluation, so no dropout
 
         for block in self.transformer.h[: self.probe_layer]:
             x = block(x, attention_mask=attention_mask)  # TODO deeper into the block?
