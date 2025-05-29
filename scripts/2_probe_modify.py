@@ -21,9 +21,10 @@ import numpy as np
 
 # %%
 
-wdir = "/mnt/lustre/users/arouillard/project-files/"  # "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/"
-model_dir = wdir + f"models/2025_05_27_13_41/"
-gpt_load_epoch = 0
+wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/" #"/mnt/lustre/users/arouillard/project-files/"  #
+model_dir = wdir + f"models/2025_05_29_09_29/"
+gpt_load_epoch = 50
+num_workers = 8
 
 
 if os.path.exists(os.path.join(model_dir, "config.json")):
@@ -58,13 +59,14 @@ else:
 model_config = CN(**model_config_dict)
 
 # %%
-
+target_step = 1
 train_probe = ProbeDatasetMod(
     "train",
     length=configs["length"],
     n_iterations=configs["n"],
     type=configs["data_type"],
     in_test=configs["in_test"],
+    target_step=target_step,
 )
 test_probe = ProbeDatasetMod(
     "test",
@@ -72,6 +74,7 @@ test_probe = ProbeDatasetMod(
     n_iterations=configs["n"],
     type=configs["data_type"],
     in_test=configs["in_test"],
+    target_step=target_step,
 )
 val_probe = ProbeDatasetMod(
     "validation",
@@ -79,6 +82,7 @@ val_probe = ProbeDatasetMod(
     n_iterations=configs["n"],
     type=configs["data_type"],
     in_test=configs["in_test"],
+    target_step=target_step,
 )
 
 n_classes = train_probe.n_classes
@@ -92,7 +96,7 @@ print(f"Number of classes: {n_classes}")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Running on device:", device)
 
-batch_size = 2**15  # train_config.batch_size
+batch_size = 2**17  # train_config.batch_size
 
 
 train_loader = DataLoader(
@@ -100,6 +104,7 @@ train_loader = DataLoader(
     shuffle=True,
     pin_memory=True,
     batch_size=batch_size,
+    num_workers=num_workers,
 )
 
 test_loader = DataLoader(
@@ -107,6 +112,7 @@ test_loader = DataLoader(
     shuffle=True,  # No need to shuffle validation data
     pin_memory=True,
     batch_size=batch_size,
+    num_workers=num_workers,
 )
 
 best_epoch = {
@@ -125,10 +131,6 @@ best_epoch = {
         # 4: 0,
     },
 }
-
-target_step = 1
-steps = [i for i in range(-target_step, target_step + 1) if i != 0]
-steps = torch.tensor(steps, device=device)
 
 for probe_layer in range(model_config.n_layer + 1):
     for w in ["random", "trained"]:
@@ -172,7 +174,7 @@ for probe_layer in range(model_config.n_layer + 1):
         model.eval()
         out_dir = model_dir + f"modified_{gpt_load_epoch}_{w}_{probe_layer}/"
 
-        for i, batch in enumerate(train_loader):
+        for i, batch in enumerate(test_loader):
             inputs, targets, targets_mod, true_out, true_out_mod = batch
             inputs = inputs.to(device)
             targets = targets.to(device)
@@ -187,7 +189,7 @@ for probe_layer in range(model_config.n_layer + 1):
             # convert x_tmp to something that can be optimized
             x_tmp = torch.nn.Parameter(x_tmp, requires_grad=True)
 
-            optimizer = optim.Adam([x_tmp], lr=3e-4)
+            optimizer = optim.Adam([x_tmp], lr=3e-3)
             for _ in range(100):
                 # TODO: implement a better way to modify x
                 # TODO: early stopping if loss does not decrease
@@ -215,16 +217,16 @@ for probe_layer in range(model_config.n_layer + 1):
                 targets.cpu().numpy(),
             )
             np.save(
+                os.path.join(out_dir, f"batch_{i}_target_idx_mod.npy"),
+                targets_mod.cpu().numpy(),
+            )
+            np.save(
                 os.path.join(out_dir, f"batch_{i}_true_pred.npy"),
                 true_out.cpu().numpy(),
             )
             np.save(
                 os.path.join(out_dir, f"batch_{i}_pred.npy"),
                 y_pred.cpu().numpy(),
-            )
-            np.save(
-                os.path.join(out_dir, f"batch_{i}_target_idx_mod.npy"),
-                targets_mod.cpu().numpy(),
             )
             np.save(
                 os.path.join(out_dir, f"batch_{i}_pred_mod.npy"),
@@ -234,6 +236,11 @@ for probe_layer in range(model_config.n_layer + 1):
                 os.path.join(out_dir, f"batch_{i}_true_pred_mod.npy"),
                 true_out_mod.cpu().numpy(),
             )
+
+            acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod).all(
+                1
+            ).cpu().sum().item() / targets.size(0)
+            print(f"Batch {i}: Accuracy of modified predictions: {acc:.4f}")
 
 
 # %%

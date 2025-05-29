@@ -29,6 +29,7 @@ else:
 
     configs = {
         "data_type": "binary",
+        # "data_type":"decimal"
         "n": 3,
         "length": 23,
     }

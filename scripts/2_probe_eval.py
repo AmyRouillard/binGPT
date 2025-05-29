@@ -20,9 +20,10 @@ import numpy as np
 
 # %%
 
-wdir = "/mnt/lustre/users/arouillard/project-files/"  # "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/"
-model_dir = wdir + f"models/2025_05_27_13_41/"
-gpt_load_epoch = 0
+wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/" #"/mnt/lustre/users/arouillard/project-files/"  #
+model_dir = wdir + f"models/2025_05_29_09_29/"
+gpt_load_epoch = 50
+num_workers = 8
 
 
 if os.path.exists(os.path.join(model_dir, "config.json")):
@@ -128,7 +129,7 @@ def evaluate_probe(model, probe, data_loader, device, save_path=None):
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Running on device:", device)
 
-batch_size = 2**15  # train_config.batch_size
+batch_size = 2**17  # train_config.batch_size
 
 
 train_loader = DataLoader(
@@ -136,6 +137,7 @@ train_loader = DataLoader(
     shuffle=False,
     pin_memory=True,
     batch_size=batch_size,
+    num_workers=num_workers,
 )
 
 test_loader = DataLoader(
@@ -143,6 +145,7 @@ test_loader = DataLoader(
     shuffle=False,  # No need to shuffle validation data
     pin_memory=True,
     batch_size=batch_size,
+    num_workers=num_workers,
 )
 
 best_epoch = {

@@ -223,11 +223,12 @@ class ProbeDataset(TentDataset):
             split,
             length,
             n_iterations,
-            type,
+            "binary",
             tokenized=tokenized,
             in_test=in_test,
         )
 
+        self.ptype = type
         self.n_classes = (
             length + 1
         )  # find the position of the least significant bit (number of bits + 1 for no bit set)
@@ -242,6 +243,18 @@ class ProbeDataset(TentDataset):
             y = y[-1].long()
         else:
             y = torch.tensor([self.length], dtype=torch.long)
+
+        if self.ptype == "decimal":
+            x0 = inp.tolist()
+            x0 = sum([d / 2**i / 2 for i, d in enumerate(x0)])
+
+            if self.tokenized:
+                x0 = format(x0, f".{self.length}f")[2:]
+                x0 = [int(d) for d in x0]
+            else:
+                x0 = [x0]
+
+            inp = torch.tensor(x0)
 
         return inp, y
 
@@ -263,11 +276,11 @@ class ProbeDatasetMod(TentDataset):
             split,
             length,
             n_iterations,
-            type,
+            "binary",
             tokenized=tokenized,
             in_test=in_test,
         )
-
+        self.ptype = type
         self.n_classes = (
             length + 1
         )  # find the position of the least significant bit (number of bits + 1 for no bit set)
@@ -353,21 +366,6 @@ class ProbeDatasetMod(TentDataset):
         # x0 = [int(d) for d in x0]
         x1 = [int(d) for d in x1]
 
-        # if self.type == "decimal":
-
-        #     x0 = sum([d / 2**i / 2 for i, d in enumerate(x0)])
-        #     x1 = sum([d / 2**i / 2 for i, d in enumerate(x1)])
-
-        #     if self.tokenized:
-        #         x0 = format(x0, f".{self.length}f")[2:]
-        #         x1 = format(x1, f".{self.length}f")[2:]
-        #         x0 = [int(d) for d in x0]
-        #         x1 = [int(d) for d in x1]
-        #     else:
-        #         x0 = [x0]
-        #         x1 = [x1]
-
-        # convert to torch tensors
         return (
             torch.tensor(x0),  # , dtype=torch.long
             torch.tensor(x1),  # , dtype=torch.long
@@ -384,5 +382,32 @@ class ProbeDatasetMod(TentDataset):
             y = y[-1].long()
         else:
             y = torch.tensor([self.length], dtype=torch.long)
+
+        if self.ptype == "decimal":
+            x0 = inp.tolist()
+            x1 = out.tolist()
+            x0 = sum([d / 2**i / 2 for i, d in enumerate(x0)])
+            x1 = sum([d / 2**i / 2 for i, d in enumerate(x1)])
+
+            out_mod = out_mod.tolist()
+            out_mod = sum([d / 2**i / 2 for i, d in enumerate(out_mod)])
+            if self.tokenized:
+                x0 = format(x0, f".{self.length}f")[2:]
+                x1 = format(x1, f".{self.length}f")[2:]
+
+                out_mod = format(out_mod, f".{self.length}f")[2:]
+
+                x0 = [int(d) for d in x0]
+                x1 = [int(d) for d in x1]
+
+                out_mod = [int(d) for d in out_mod]
+            else:
+                x0 = [x0]
+                x1 = [x1]
+                out_mod = [out_mod]
+
+            inp = torch.tensor(x0)
+            out = torch.tensor(x1)
+            out_mod = torch.tensor(out_mod)
 
         return inp, y, y_mod, out, out_mod

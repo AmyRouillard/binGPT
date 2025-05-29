@@ -184,7 +184,7 @@ for probe_layer in range(model_config.n_layer + 1):
         probe.to(device)
 
         # set the optimizer
-        optimizer = optim.Adam(probe.parameters(), lr=3e-3)
+        optimizer = optim.Adam(probe.parameters(), lr=1e-1)
 
         # set the optimizer to zero grad
         optimizer.zero_grad()
