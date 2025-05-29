@@ -146,6 +146,8 @@ for probe_layer in range(model_config.n_layer + 1):
             model.load_state_dict(
                 torch.load(os.path.join(model_dir, f"model_{gpt_load_epoch}.pt"))
             )
+        model.to(device)
+        model.eval()
 
         input_dim = model.transformer.wpe.weight.shape
         # multiply elements of input_dim
@@ -169,9 +171,8 @@ for probe_layer in range(model_config.n_layer + 1):
             )
 
         probe.to(device)
-        model.to(device)
         probe.eval()
-        model.eval()
+
         out_dir = model_dir + f"modified_{gpt_load_epoch}_{w}_{probe_layer}/"
 
         for i, batch in enumerate(test_loader):

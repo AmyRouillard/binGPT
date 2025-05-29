@@ -256,7 +256,7 @@ for probe_layer in range(model_config.n_layer + 1):
                         ),
                     )
 
-                if improved or accuracy == 1.0:
+                if improved and accuracy <= 1.0:
                     patience_counter = 0
                 else:
                     patience_counter += 1
