@@ -108,6 +108,7 @@ val_loader = DataLoader(
 
 early_stopping_patience = 10
 
+
 for probe_layer in range(model_config.n_layer + 1):
     for w in ["random", "trained"]:
 
@@ -180,6 +181,9 @@ for probe_layer in range(model_config.n_layer + 1):
         epoch_num = 0
         stop_training_flag = False
         best_val_loss = float("inf")
+        avg_val_loss = 0
+        avg_val_accuracy = 0
+        patience_counter = 0
         best_epoch = 0
         while epoch_num < 100:
 
