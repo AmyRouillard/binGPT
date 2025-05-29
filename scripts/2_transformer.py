@@ -85,9 +85,9 @@ else:
 
     # create model_config_dict
     model_config_dict = {
-        "n_layer": 4,
-        "n_head": 4,
-        "n_embd": 2**5 * 4,
+        "n_layer": 2,
+        "n_head": 2,
+        "n_embd": 2**4 * 2,
         "model_type": None,
         "vocab_size": train_dataset.get_vocab_size(),
         "block_size": train_dataset.get_block_size(),
@@ -143,6 +143,7 @@ else:
     train_config.num_workers = 0  # os.cpu_count()
     train_config.device = "cuda" if torch.cuda.is_available() else "cpu"
     train_config.model_dir = model_dir
+    train_config.early_stopping_patience = 10
 
     train_config_dict = train_config.to_dict()
 

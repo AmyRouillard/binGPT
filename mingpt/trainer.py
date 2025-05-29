@@ -30,7 +30,7 @@ class Trainer:
         C.grad_norm_clip = 1.0
 
         C.val_batch_size = C.batch_size
-        C.early_stopping_patience = 2
+        C.early_stopping_patience = 5
 
         return C
 
@@ -104,13 +104,6 @@ class Trainer:
 
     def _check_early_stopping(self, val_metrics):
         """Helper function to check for early stopping."""
-        print(
-            f"Checking early stopping: current_metric_val={self.current_metric_val:.4e}, "
-            f"best_metric_val={self.best_metric_val:.4e}, "
-            f"{val_metrics.get("val_loss", float("inf")):.4e}, "
-            f"patience={self.config.early_stopping_patience}"
-            f"{self.config.early_stopping_patience <= 0} {self.val_dataset is not None}"
-        )
 
         if self.val_dataset is None or self.config.early_stopping_patience <= 0:
             return  # No validation or early stopping disabled
@@ -137,6 +130,13 @@ class Trainer:
                 self.stop_training_flag = True
 
         # self.trigger_callbacks("on_validation_end", val_metrics=val_metrics)
+        print(
+            f"Checking early stopping: current_metric_val={self.current_metric_val:.4e}, "
+            f"best_metric_val={self.best_metric_val:.4e}, "
+            f"early_stopping_patience={self.config.early_stopping_patience}, "
+            f"patience_counter={self.patience_counter}, "
+            f"stop_training_flag={self.stop_training_flag}"
+        )
 
     def run(self):
         model, config = self.model, self.config
