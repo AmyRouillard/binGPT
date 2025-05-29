@@ -192,7 +192,7 @@ for probe_layer in range(model_config.n_layer + 1):
 
         probe_path = os.path.join(
             model_dir,
-            f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}_epoch_{best_epoch[w][probe_layer]}.pt",
+            f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}/epoch_{best_epoch[w][probe_layer]}.pt",
         )
         if os.path.exists(probe_path):
             print(f"Loading probe from {probe_path}")

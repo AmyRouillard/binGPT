@@ -310,7 +310,7 @@ class EncoderOnlyTransformer(nn.Module):
         pos_emb = self.transformer.wpe(
             pos
         )  # position embeddings of shape (1, t, n_embd)
-        x = self.transformer.drop(tok_emb + pos_emb)
+        x = self.transformer.drop(tok_emb + pos_emb)  # shape (b, t, n_embd)
 
         for block in self.transformer.h:
             x = block(x, attention_mask=attention_mask)  # Pass mask to each block

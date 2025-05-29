@@ -158,7 +158,7 @@ for probe_layer in range(model_config.n_layer + 1):
 
         probe_path = os.path.join(
             model_dir,
-            f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}_epoch_{best_epoch[w][probe_layer]}.pt",
+            f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}/epoch_{best_epoch[w][probe_layer]}.pt",
         )
         if os.path.exists(probe_path):
             print(f"Loading probe from {probe_path}")
@@ -235,6 +235,11 @@ for probe_layer in range(model_config.n_layer + 1):
             np.save(
                 os.path.join(out_dir, f"batch_{i}_true_pred_mod.npy"),
                 true_out_mod.cpu().numpy(),
+            )
+            # save x
+            np.save(
+                os.path.join(out_dir, f"batch_{i}_intermediated.npy"),
+                x.cpu().numpy(),
             )
 
             acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod).all(
