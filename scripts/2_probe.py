@@ -21,6 +21,11 @@ import csv
 wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/" #"/mnt/lustre/users/arouillard/project-files/"  #
 model_dir = wdir + f"models/2025_05_29_09_29/"
 gpt_load_epoch = 50
+num_workers = 8
+
+# wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/" #"/mnt/lustre/users/arouillard/project-files/"  #
+# model_dir = wdir + f"models/2025_05_27_13_41/"
+# gpt_load_epoch = -1
 
 if os.path.exists(os.path.join(model_dir, "config.json")):
     # read json file
@@ -87,7 +92,7 @@ print(f"Number of classes: {n_classes}")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Running on device:", device)
 
-batch_size = 2**15  # train_config.batch_size
+batch_size = 2**17  # train_config.batch_size
 
 
 train_loader = DataLoader(
@@ -96,6 +101,7 @@ train_loader = DataLoader(
     shuffle=False,
     pin_memory=True,
     batch_size=batch_size,
+    num_workers=num_workers,
 )
 
 val_loader = DataLoader(
@@ -103,6 +109,7 @@ val_loader = DataLoader(
     shuffle=False,  # No need to shuffle validation data
     pin_memory=True,
     batch_size=batch_size,
+    num_workers=num_workers,
 )
 
 
@@ -194,145 +201,141 @@ for probe_layer in range(model_config.n_layer + 1):
         avg_val_accuracy = 0
         patience_counter = 0
         best_epoch = 0
-        while epoch_num < 100:
+        while epoch_num < 600:
 
-            # fetch the next batch (x, y) and re-init iterator if needed
-            try:
-                batch = next(data_iter)
-                # print("loaded batch")
-            except StopIteration:
+            # # fetch the next batch (x, y) and re-init iterator if needed
+            # try:
+            #     batch = next(data_iter)
+            #     # print("loaded batch")
+            # except StopIteration:
 
-                probe.eval()
-                # --- Validation Check ---
-                total_val_loss = 0.0
-                total_val_samples = 0
-                accuracy = 0.0  # Initialize accuracy or other metrics
-                # Add other metrics if needed, e.g., correct_predictions = 0
-                with torch.no_grad():  # Disable gradient calculations
-                    for batch in val_loader:
-                        batch = [t.to(device) for t in batch]
-                        x, y = batch
-                        x = model.forward_1of2(x)
-                        logits, loss = probe.forward(x.view(x.size(0), -1), y)
+            probe.eval()
+            # --- Validation Check ---
+            total_val_loss = 0.0
+            total_val_samples = 0
+            accuracy = 0.0  # Initialize accuracy or other metrics
+            # Add other metrics if needed, e.g., correct_predictions = 0
+            with torch.no_grad():  # Disable gradient calculations
+                for batch in val_loader:
+                    batch = [t.to(device) for t in batch]
+                    x, y = batch
+                    x = model.forward_1of2(x)
+                    logits, loss = probe.forward(x.view(x.size(0), -1), y)
 
-                        total_val_loss += loss.item() * x.size(
-                            0
-                        )  # Weighted by batch size
-                        total_val_samples += x.size(0)
-                        accuracy += (logits.argmax(dim=-1) == y).sum().item()
-                        # Example for accuracy:
-                        # _, predicted = torch.max(logits, 1)
-                        # correct_predictions += (predicted == y).sum().item()
+                    total_val_loss += loss.item() * x.size(0)  # Weighted by batch size
+                    total_val_samples += x.size(0)
+                    accuracy += (logits.argmax(dim=-1) == y.view(-1)).sum().item()
+                    # Example for accuracy:
+                    # _, predicted = torch.max(logits, 1)
+                    # correct_predictions += (predicted == y).sum().item()
 
-                probe.train()  # Set model back to training mode
+            probe.train()  # Set model back to training mode
 
-                avg_val_loss = (
-                    total_val_loss / total_val_samples
-                    if total_val_samples > 0
-                    else float("nan")
-                )
-                avg_val_accuracy = (
-                    accuracy / total_val_samples
-                    if total_val_samples > 0
-                    else float("nan")
-                )
+            avg_val_loss = (
+                total_val_loss / total_val_samples
+                if total_val_samples > 0
+                else float("nan")
+            )
+            avg_val_accuracy = (
+                accuracy / total_val_samples if total_val_samples > 0 else float("nan")
+            )
 
-                improved = False
-                if avg_val_loss < best_val_loss:
-                    improved = True
-                    best_val_loss = avg_val_loss
-                    best_epoch = epoch_num
-                    # Save the model state
-                    torch.save(
-                        probe.state_dict(),
-                        os.path.join(
-                            model_dir,
-                            f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}/epoch_{epoch_num}.pt",
-                        ),
-                    )
-
-                if improved:
-                    patience_counter = 0
-                else:
-                    patience_counter += 1
-
-                    if patience_counter >= early_stopping_patience:
-                        stop_training_flag = True
-
-                print(
-                    f"Probe {w} Layer {probe_layer}, Epoch {epoch_num}, "
-                    f"Loss: {avg_val_loss:.2e}, Acc: {avg_val_accuracy:.2e}, Best loss: {best_val_loss}"
-                )
-
-                with open(
+            improved = False
+            if avg_val_loss < best_val_loss:
+                improved = True
+                best_val_loss = avg_val_loss
+                best_epoch = epoch_num
+                # Save the model state
+                torch.save(
+                    probe.state_dict(),
                     os.path.join(
                         model_dir,
-                        f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}/training_log.csv",
+                        f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}/epoch_{epoch_num}.pt",
                     ),
-                    "a",
-                    newline="",
-                ) as f:
-                    writer = csv.writer(f)
-                    writer.writerow(
-                        [
-                            epoch_num,
-                            iter_num,
-                            iter_dt * 1000,
-                            loss.item(),
-                            avg_val_loss,
-                            best_val_loss,
-                            avg_val_accuracy,
-                        ]
-                    )
-
-                data_iter = iter(train_loader)
-                batch = next(data_iter)
-                iter_num = 0
-                epoch_num += 1
-
-            if stop_training_flag:
-                print(
-                    f"Stopping training for Probe {w} Layer {probe_layer} at epoch {epoch_num} due to early stopping."
                 )
-                break
 
-            batch = [t.to(device) for t in batch]
-            x, y = batch
+            if improved:
+                patience_counter = 0
+            else:
+                patience_counter += 1
 
-            x = model.forward_1of2(x)
-            out, loss = probe.forward(x.view(x.size(0), -1), y)
+                if patience_counter >= early_stopping_patience:
+                    stop_training_flag = True
 
-            probe.zero_grad(set_to_none=True)
-            loss.backward()
-            optimizer.step()
+            print(
+                f"Probe {w} Layer {probe_layer}, Epoch {epoch_num}, "
+                f"Loss: {avg_val_loss:.2e}, Acc: {avg_val_accuracy:.2e}, Best loss: {best_val_loss}"
+            )
 
-            tnow = time.time()
-            iter_dt = tnow - iter_time
-            iter_time = tnow
+            with open(
+                os.path.join(
+                    model_dir,
+                    f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}/training_log.csv",
+                ),
+                "a",
+                newline="",
+            ) as f:
+                writer = csv.writer(f)
+                writer.writerow(
+                    [
+                        epoch_num,
+                        iter_num,
+                        iter_dt * 1000,
+                        loss.item(),
+                        avg_val_loss,
+                        best_val_loss,
+                        avg_val_accuracy,
+                    ]
+                )
 
-            if iter_num % 10 == 0:
-                with open(
-                    os.path.join(
-                        model_dir,
-                        f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}/training_log.csv",
-                    ),
-                    "a",
-                    newline="",
-                ) as f:
-                    writer = csv.writer(f)
-                    writer.writerow(
-                        [
-                            epoch_num,
-                            iter_num,
-                            iter_dt * 1000,
-                            loss.item(),
-                            avg_val_loss,
-                            best_val_loss,
-                            avg_val_accuracy,
-                        ]
-                    )
+            data_iter = iter(train_loader)
+            batch = next(data_iter)
+            iter_num = 0
+            epoch_num += 1
 
-            iter_num += 1
+            # if stop_training_flag:
+            #     print(
+            #         f"Stopping training for Probe {w} Layer {probe_layer} at epoch {epoch_num} due to early stopping."
+            #     )
+            #     break
+
+            # batch = [t.to(device) for t in batch]
+            # x, y = batch
+
+            # x = model.forward_1of2(x)
+            # out, loss = probe.forward(x.view(x.size(0), -1), y)
+
+            # probe.zero_grad(set_to_none=True)
+            # loss.backward()
+            # optimizer.step()
+
+            # tnow = time.time()
+            # iter_dt = tnow - iter_time
+            # iter_time = tnow
+
+            # if iter_num % 10 == 0:
+            #     with open(
+            #         os.path.join(
+            #             model_dir,
+            #             f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}/training_log.csv",
+            #         ),
+            #         "a",
+            #         newline="",
+            #     ) as f:
+            #         writer = csv.writer(f)
+            #         writer.writerow(
+            #             [
+            #                 epoch_num,
+            #                 iter_num,
+            #                 iter_dt * 1000,
+            #                 loss.item(),
+            #                 avg_val_loss,
+            #                 best_val_loss,
+            #                 avg_val_accuracy,
+            #             ]
+            #         )
+
+            # iter_num += 1
 
 
 # %%
