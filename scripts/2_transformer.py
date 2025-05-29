@@ -136,11 +136,11 @@ else:
 
     train_config = Trainer.get_default_config()
     train_config.learning_rate = 3e-4
-    train_config.batch_size = 2**12
+    train_config.batch_size = 2**17
     train_config.max_iters = (
         len(train_dataset) / train_config.batch_size
     ) * 500  # 6000
-    train_config.num_workers = 0  # os.cpu_count()
+    train_config.num_workers = 8  # 0  # os.cpu_count()
     train_config.device = "cuda" if torch.cuda.is_available() else "cpu"
     train_config.model_dir = model_dir
     train_config.early_stopping_patience = 10

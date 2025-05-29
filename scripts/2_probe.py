@@ -201,7 +201,7 @@ for probe_layer in range(model_config.n_layer + 1):
         avg_val_accuracy = 0
         patience_counter = 0
         best_epoch = 0
-        while epoch_num < 600:
+        while epoch_num < 500:
 
             # fetch the next batch (x, y) and re-init iterator if needed
             try:
@@ -268,7 +268,8 @@ for probe_layer in range(model_config.n_layer + 1):
 
                 print(
                     f"Probe {w} Layer {probe_layer}, Epoch {epoch_num}, "
-                    f"Loss: {avg_val_loss:.2e}, Acc: {avg_val_accuracy:.2e}, Best loss: {best_val_loss}"
+                    f"Loss: {avg_val_loss:.2e}, Best loss: {best_val_loss}, Acc: {avg_val_accuracy:.2e}, "
+                    f"Patience: {patience_counter}/{early_stopping_patience}"
                 )
 
                 with open(

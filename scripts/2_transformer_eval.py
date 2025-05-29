@@ -14,7 +14,7 @@ import numpy as np
 wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/" #"/mnt/lustre/users/arouillard/project-files/"  #
 model_dir = wdir + f"models/2025_05_29_09_29/"
 gpt_load_epoch = 50
-
+num_workers = 8
 
 # model_dir = wdir + "models/binary_2025_04_23_13_02"
 
@@ -79,7 +79,7 @@ else:
 # %%
 
 model.eval()  # Set the model to evaluation mode
-batch_size = 2**15
+batch_size = 2**17
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Running on device:", device)
 model.to(device)  # Move model to the appropriate device
@@ -90,6 +90,7 @@ train_loader = DataLoader(
     shuffle=True,
     pin_memory=True,
     batch_size=batch_size,
+    num_workers=num_workers,
 )
 
 test_loader = DataLoader(
@@ -97,6 +98,7 @@ test_loader = DataLoader(
     shuffle=True,
     pin_memory=True,
     batch_size=batch_size,
+    num_workers=num_workers,
 )
 
 # %%
