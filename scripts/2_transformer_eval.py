@@ -13,7 +13,7 @@ import numpy as np
 
 wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/" #"/mnt/lustre/users/arouillard/project-files/"  #
 model_dir = wdir + f"models/2025_05_29_09_29"
-gpt_load_epoch = 0
+gpt_load_epoch = 50
 
 
 # model_dir = wdir + "models/binary_2025_04_23_13_02"
@@ -139,6 +139,8 @@ def evaluate_model(model, data_loader, save_path=None):
 
 
 # %%
+
+print("Evaluating model...")
 
 eval_dir = model_dir + f"eval_{gpt_load_epoch}/"
 # Evaluate on training + validation dataset
