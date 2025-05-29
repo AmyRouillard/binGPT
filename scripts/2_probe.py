@@ -18,9 +18,9 @@ import csv
 
 # %%
 
-wdir = "/mnt/lustre/users/arouillard/project-files/"  # "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/"
-model_dir = wdir + f"models/2025_05_27_13_41/"
-gpt_load_epoch = 0
+wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/" #"/mnt/lustre/users/arouillard/project-files/"  #
+model_dir = wdir + f"models/2025_05_29_09_29/"
+gpt_load_epoch = 50
 
 if os.path.exists(os.path.join(model_dir, "config.json")):
     # read json file
@@ -106,16 +106,22 @@ val_loader = DataLoader(
 )
 
 
-early_stopping_patience = 4
+early_stopping_patience = 10
 
 for probe_layer in range(model_config.n_layer + 1):
     for w in ["random", "trained"]:
 
         if not os.path.exists(
-            os.path.join(model_dir, f"probe_{w}_{probe_layer}_training_log.csv")
+            os.path.join(
+                model_dir,
+                f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}_training_log.csv",
+            )
         ):
             with open(
-                os.path.join(model_dir, f"probe_{w}_{probe_layer}_training_log.csv"),
+                os.path.join(
+                    model_dir,
+                    f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}_training_log.csv",
+                ),
                 "w",
                 newline="",
             ) as f:
@@ -126,7 +132,9 @@ for probe_layer in range(model_config.n_layer + 1):
                         "iter_num",
                         "iter_dt (ms)",
                         "train_loss",
+                        "current_val_loss",
                         "best_val_loss",
+                        "avg_val_accuracy",
                     ]
                 )
 
@@ -182,18 +190,20 @@ for probe_layer in range(model_config.n_layer + 1):
                 # --- Validation Check ---
                 total_val_loss = 0.0
                 total_val_samples = 0
+                accuracy = 0.0  # Initialize accuracy or other metrics
                 # Add other metrics if needed, e.g., correct_predictions = 0
                 with torch.no_grad():  # Disable gradient calculations
                     for batch in val_loader:
                         batch = [t.to(device) for t in batch]
                         x, y = batch
                         x = model.forward_1of2(x)
-                        _, loss = probe.forward(x.view(x.size(0), -1), y)
+                        logits, loss = probe.forward(x.view(x.size(0), -1), y)
 
                         total_val_loss += loss.item() * x.size(
                             0
                         )  # Weighted by batch size
                         total_val_samples += x.size(0)
+                        accuracy += (logits.argmax(dim=1) == y).sum().item()
                         # Example for accuracy:
                         # _, predicted = torch.max(logits, 1)
                         # correct_predictions += (predicted == y).sum().item()
@@ -202,6 +212,11 @@ for probe_layer in range(model_config.n_layer + 1):
 
                 avg_val_loss = (
                     total_val_loss / total_val_samples
+                    if total_val_samples > 0
+                    else float("nan")
+                )
+                avg_val_accuracy = (
+                    accuracy / total_val_samples
                     if total_val_samples > 0
                     else float("nan")
                 )
@@ -220,9 +235,23 @@ for probe_layer in range(model_config.n_layer + 1):
                         ),
                     )
 
+                if improved:
+                    patience_counter = 0
+                else:
+                    patience_counter += 1
+
+                    if patience_counter >= early_stopping_patience:
+                        stop_training_flag = True
+
+                print(
+                    f"Probe {w} Layer {probe_layer}, Epoch {epoch_num}, "
+                    f"Loss: {avg_val_loss:.2e}, Acc: {avg_val_accuracy:.2e}, Best loss: {best_val_loss}"
+                )
+
                 with open(
                     os.path.join(
-                        model_dir, f"probe_{w}_{probe_layer}_training_log.csv"
+                        model_dir,
+                        f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}_training_log.csv",
                     ),
                     "a",
                     newline="",
@@ -234,17 +263,11 @@ for probe_layer in range(model_config.n_layer + 1):
                             iter_num,
                             iter_dt * 1000,
                             loss.item(),
+                            avg_val_loss,
                             best_val_loss,
+                            avg_val_accuracy,
                         ]
                     )
-
-                if improved:
-                    patience_counter = 0
-                else:
-                    patience_counter += 1
-
-                    if patience_counter >= early_stopping_patience:
-                        stop_training_flag = True
 
                 data_iter = iter(train_loader)
                 batch = next(data_iter)
@@ -271,17 +294,11 @@ for probe_layer in range(model_config.n_layer + 1):
             iter_dt = tnow - iter_time
             iter_time = tnow
 
-            iter_num += 1
-
             if iter_num % 10 == 0:
-                print(
-                    f"Probe {w} Layer {probe_layer} - Epoch {epoch_num} - Iter {iter_num}/{len(train_loader)}: "
-                    f"Loss: {loss.item():.4f}, Iter Time: {iter_dt * 1000:.2f} ms"
-                )
-
                 with open(
                     os.path.join(
-                        model_dir, f"probe_{w}_{probe_layer}_training_log.csv"
+                        model_dir,
+                        f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}_training_log.csv",
                     ),
                     "a",
                     newline="",
@@ -293,9 +310,13 @@ for probe_layer in range(model_config.n_layer + 1):
                             iter_num,
                             iter_dt * 1000,
                             loss.item(),
+                            avg_val_loss,
                             best_val_loss,
+                            avg_val_accuracy,
                         ]
                     )
+
+            iter_num += 1
 
 
 # %%
