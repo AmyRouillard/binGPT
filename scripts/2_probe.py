@@ -163,6 +163,9 @@ for probe_layer in range(model_config.n_layer + 1):
         # set the model to training mode
         probe.train()
 
+        model.to(device)
+        probe.to(device)
+
         # set the optimizer
         optimizer = optim.Adam(probe.parameters(), lr=3e-4)
 
