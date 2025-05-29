@@ -11,8 +11,8 @@ import numpy as np
 
 # %%
 
-wdir = "/mnt/lustre/users/arouillard/project-files/"  # "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/"
-model_dir = wdir + f"models/2025_05_27_13_41/"
+wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/" #"/mnt/lustre/users/arouillard/project-files/"  #
+model_dir = wdir + f"models/2025_05_29_09_29"
 gpt_load_epoch = 0
 
 

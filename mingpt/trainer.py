@@ -77,6 +77,7 @@ class Trainer:
         self.model.eval()  # Set model to evaluation mode
         total_val_loss = 0.0
         total_val_samples = 0
+        accuracy = 0.0  # Initialize accuracy if needed
         # Add other metrics if needed, e.g., correct_predictions = 0
 
         with torch.no_grad():  # Disable gradient calculations
@@ -86,6 +87,7 @@ class Trainer:
                 logits, loss = self.model(x, y)  # Assuming model returns (logits, loss)
                 total_val_loss += loss.item() * x.size(0)  # Weighted by batch size
                 total_val_samples += x.size(0)
+                accuracy += (logits.argmax(dim=-1) == y).sum().item()
                 # Example for accuracy:
                 # _, predicted = torch.max(logits, 1)
                 # correct_predictions += (predicted == y).sum().item()
@@ -97,8 +99,11 @@ class Trainer:
             if total_val_samples > 0
             else float("nan")
         )
+        avg_accuracy = (
+            accuracy / total_val_samples if total_val_samples > 0 else float("nan")
+        )
 
-        val_metrics = {"val_loss": avg_val_loss}
+        val_metrics = {"val_loss": avg_val_loss, "val_accuracy": avg_accuracy}
 
         return val_metrics
 
@@ -131,11 +136,13 @@ class Trainer:
 
         # self.trigger_callbacks("on_validation_end", val_metrics=val_metrics)
         print(
-            f"Checking early stopping: current_metric_val={self.current_metric_val:.4e}, "
-            f"best_metric_val={self.best_metric_val:.4e}, "
-            f"early_stopping_patience={self.config.early_stopping_patience}, "
+            f"epoch {self.epoch_num}, "
+            f"current_val={self.current_metric_val:.2e}, "
+            f"best_val={self.best_metric_val:.2e}, "
+            f"patience={self.config.early_stopping_patience}, "
             f"patience_counter={self.patience_counter}, "
-            f"stop_training_flag={self.stop_training_flag}"
+            f"stop_flag={self.stop_training_flag}"
+            f"val_acc={val_metrics.get('val_accuracy', 'N/A'):.2e}"
         )
 
     def run(self):
