@@ -184,10 +184,8 @@ for probe_layer in range(model_config.n_layer + 1):
         probe.to(device)
 
         # set the optimizer
-        optimizer = optim.Adam(probe.parameters(), lr=3e-4)
+        optimizer = optim.Adam(probe.parameters(), lr=3e-3)
 
-        # set the loss to zero
-        loss = 0
         # set the optimizer to zero grad
         optimizer.zero_grad()
 
@@ -220,9 +218,9 @@ for probe_layer in range(model_config.n_layer + 1):
                         batch = [t.to(device) for t in batch]
                         x, y = batch
                         x = model.forward_1of2(x)
-                        logits, loss = probe.forward(x.view(x.size(0), -1), y)
+                        logits, vloss = probe.forward(x.view(x.size(0), -1), y)
 
-                        total_val_loss += loss.item() * x.size(
+                        total_val_loss += vloss.item() * x.size(
                             0
                         )  # Weighted by batch size
                         total_val_samples += x.size(0)
@@ -268,7 +266,7 @@ for probe_layer in range(model_config.n_layer + 1):
 
                 print(
                     f"Probe {w} Layer {probe_layer}, Epoch {epoch_num}, "
-                    f"Loss: {avg_val_loss:.2e}, Best loss: {best_val_loss}, Acc: {avg_val_accuracy:.2e}, "
+                    f"Loss: {loss:.2e}, Best loss: {best_val_loss}, Acc: {avg_val_accuracy:.2e}, "
                     f"Patience: {patience_counter}/{early_stopping_patience}"
                 )
 
