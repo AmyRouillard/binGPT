@@ -266,7 +266,7 @@ for probe_layer in range(model_config.n_layer + 1):
 
                 print(
                     f"Probe {w} Layer {probe_layer}, Epoch {epoch_num}, "
-                    f"Loss: {loss:.2e}, Best loss: {best_val_loss}, Acc: {avg_val_accuracy:.2e}, "
+                    f"Loss: {loss:.2e}, Best loss: {best_val_loss:.2e}, Val acc: {avg_val_accuracy:.2e}, "
                     f"Patience: {patience_counter}/{early_stopping_patience}"
                 )
 
