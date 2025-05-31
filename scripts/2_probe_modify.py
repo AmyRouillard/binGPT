@@ -193,6 +193,8 @@ for probe_layer in range(model_config.n_layer + 1):
             x_tmp = torch.nn.Parameter(x_tmp, requires_grad=True)
 
             optimizer = optim.Adam([x_tmp], lr=3e-2)
+            patience = 0
+            max_patience = 3
             for itt in range(10):
                 # TODO: implement a better way to modify x
                 # TODO: early stopping if loss does not decrease
@@ -216,6 +218,9 @@ for probe_layer in range(model_config.n_layer + 1):
                 #     f"Accuracy: {total_ / targets.size(0):.2e} ({total_}/{targets.size(0)})"
                 # )
                 if total_ == targets.size(0):
+                    patience += 1
+
+                if patience >= max_patience:
                     # print(
                     #     f"Batch {i}: All targets modified successfully after {itt} iterations."
                     # )
@@ -270,7 +275,7 @@ for probe_layer in range(model_config.n_layer + 1):
             )
 
             print(
-                f"Batch {i}: Number of false predictions: {num_false:.2e} out of {targets.size(0)*true_out_mod.size(-1):.2e} ({num_false/targets.size(0)/true_out_mod.size(-1):.2f})"
+                f"Batch {i}: Number of false predictions: {num_false:.2e} out of {targets.size(0)*true_out_mod.size(-1):.2e} ({num_false/targets.size(0)/true_out_mod.size(-1):.4f})"
             )
 
     # # save target, predictions, modified target, and modified predictions as numpy arrays
