@@ -186,7 +186,7 @@ for probe_layer in range(model_config.n_layer + 1):
                 ]
             )
         for loader_name, loader in zip(
-            ["train+val", "test"], [train_loader, test_loader]
+            ["train_val", "test"], [train_loader, test_loader]
         ):
             for i, batch in enumerate(loader):
                 inputs, targets, targets_mod, true_out, true_out_mod = batch
@@ -315,27 +315,29 @@ for probe_layer in range(model_config.n_layer + 1):
                 # save target, predictions, modified target, and modified predictions as numpy arrays
 
                 np.save(
-                    os.path.join(out_dir, f"batch_{i}_target_idx.npy"),
+                    os.path.join(out_dir, f"{loader_name}_batch_{i}_target_idx.npy"),
                     targets.cpu().numpy(),
                 )
                 np.save(
-                    os.path.join(out_dir, f"batch_{i}_target_idx_mod.npy"),
+                    os.path.join(
+                        out_dir, f"{loader_name}_batch_{i}_target_idx_mod.npy"
+                    ),
                     targets_mod.cpu().numpy(),
                 )
                 # np.save(
-                #     os.path.join(out_dir, f"batch_{i}_true_pred.npy"),
+                #     os.path.join(out_dir, f"{loader_name}_batch_{i}_true_pred.npy"),
                 #     true_out.cpu().numpy(),
                 # )
                 # np.save(
-                #     os.path.join(out_dir, f"batch_{i}_pred.npy"),
+                #     os.path.join(out_dir, f"{loader_name}_batch_{i}_pred.npy"),
                 #     y_pred.cpu().numpy(),
                 # )
                 np.save(
-                    os.path.join(out_dir, f"batch_{i}_pred_mod.npy"),
+                    os.path.join(out_dir, f"{loader_name}_batch_{i}_pred_mod.npy"),
                     y_pred_mod.cpu().numpy(),
                 )
                 np.save(
-                    os.path.join(out_dir, f"batch_{i}_true_pred_mod.npy"),
+                    os.path.join(out_dir, f"{loader_name}_batch_{i}_true_pred_mod.npy"),
                     true_out_mod.cpu().numpy(),
                 )
 
