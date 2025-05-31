@@ -87,14 +87,14 @@ val_probe = ProbeDatasetMod(
 
 n_classes = train_probe.n_classes
 
-print(f"Number of training samples: {len(train_probe):.3e}")
-print(f"Number of test samples: {len(test_probe):.3e}")
-print(f"Number of classes: {n_classes}")
+# print(f"Number of training samples: {len(train_probe):.3e}")
+# print(f"Number of test samples: {len(test_probe):.3e}")
+# print(f"Number of classes: {n_classes}")
 
 # %%
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print("Running on device:", device)
+# print("Running on device:", device)
 
 batch_size = 2**17  # train_config.batch_size
 
@@ -160,7 +160,7 @@ for probe_layer in range(model_config.n_layer + 1):
             f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}/epoch_{best_epoch[w][probe_layer]}.pt",
         )
         if os.path.exists(probe_path):
-            print(f"Loading probe from {probe_path}")
+            # print(f"Loading probe from {probe_path}")
             probe.load_state_dict(torch.load(probe_path))
         else:
             raise FileNotFoundError(
