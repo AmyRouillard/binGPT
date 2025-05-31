@@ -96,7 +96,7 @@ print(f"Number of classes: {n_classes}")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Running on device:", device)
 
-batch_size = 2**16  # train_config.batch_size
+batch_size = 2**17  # train_config.batch_size
 
 
 train_loader = DataLoader(
@@ -208,6 +208,7 @@ for probe_layer in range(model_config.n_layer + 1):
 
                 probs = F.softmax(outputs, dim=-1)
                 _, predicted = torch.max(probs, dim=-1)
+                print(predicted.shape, targets_mod.shape)
                 total_ = (predicted == targets_mod).sum().item()
 
                 print(
