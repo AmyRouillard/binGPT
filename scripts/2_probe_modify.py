@@ -216,43 +216,48 @@ for probe_layer in range(model_config.n_layer + 1):
             ).cpu().sum().item() / targets.size(0)
             print(f"Batch {i}: Accuracy of modified predictions: {acc:.4f}")
 
-            # save target, predictions, modified target, and modified predictions as numpy arrays
-            if not os.path.exists(out_dir):
-                os.makedirs(out_dir)
+            print(true_out_mod.shape)
+            break
+        break
+    break
 
-            np.save(
-                os.path.join(out_dir, f"batch_{i}_target_idx.npy"),
-                targets.cpu().numpy(),
-            )
-            np.save(
-                os.path.join(out_dir, f"batch_{i}_target_idx_mod.npy"),
-                targets_mod.cpu().numpy(),
-            )
-            np.save(
-                os.path.join(out_dir, f"batch_{i}_true_pred.npy"),
-                true_out.cpu().numpy(),
-            )
-            np.save(
-                os.path.join(out_dir, f"batch_{i}_pred.npy"),
-                y_pred.cpu().numpy(),
-            )
-            np.save(
-                os.path.join(out_dir, f"batch_{i}_pred_mod.npy"),
-                y_pred_mod.cpu().numpy(),
-            )
-            np.save(
-                os.path.join(out_dir, f"batch_{i}_true_pred_mod.npy"),
-                true_out_mod.cpu().numpy(),
-            )
-            # save x
-            np.save(
-                os.path.join(out_dir, f"batch_{i}_intermediated.npy"),
-                x.cpu().numpy(),
-            )
-            np.save(
-                os.path.join(out_dir, f"batch_{i}_intermediated_mod.npy"),
-                x_tmp.view(x.size(0), *x.size()[1:]).cpu().detach().numpy(),
-            )
+    # # save target, predictions, modified target, and modified predictions as numpy arrays
+    # if not os.path.exists(out_dir):
+    #     os.makedirs(out_dir)
+
+    # np.save(
+    #     os.path.join(out_dir, f"batch_{i}_target_idx.npy"),
+    #     targets.cpu().numpy(),
+    # )
+    # np.save(
+    #     os.path.join(out_dir, f"batch_{i}_target_idx_mod.npy"),
+    #     targets_mod.cpu().numpy(),
+    # )
+    # np.save(
+    #     os.path.join(out_dir, f"batch_{i}_true_pred.npy"),
+    #     true_out.cpu().numpy(),
+    # )
+    # np.save(
+    #     os.path.join(out_dir, f"batch_{i}_pred.npy"),
+    #     y_pred.cpu().numpy(),
+    # )
+    # np.save(
+    #     os.path.join(out_dir, f"batch_{i}_pred_mod.npy"),
+    #     y_pred_mod.cpu().numpy(),
+    # )
+    # np.save(
+    #     os.path.join(out_dir, f"batch_{i}_true_pred_mod.npy"),
+    #     true_out_mod.cpu().numpy(),
+    # )
+    # # save x
+    # np.save(
+    #     os.path.join(out_dir, f"batch_{i}_intermediated.npy"),
+    #     x.cpu().numpy(),
+    # )
+    # np.save(
+    #     os.path.join(out_dir, f"batch_{i}_intermediated_mod.npy"),
+    #     x_tmp.view(x.size(0), *x.size()[1:]).cpu().detach().numpy(),
+    # )
 
 
 # %%
