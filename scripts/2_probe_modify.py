@@ -208,7 +208,7 @@ for probe_layer in range(model_config.n_layer + 1):
 
                 probs = F.softmax(outputs, dim=-1)
                 _, predicted = torch.max(probs, dim=-1)
-                total_ = (predicted == targets_mod).cpu().sum().item()
+                total_ = (predicted == targets_mod).sum().item()
 
                 print(
                     f"Batch {i}, Iteration {itt}: Loss: {loss.item():.2e}, "
