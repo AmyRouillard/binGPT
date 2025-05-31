@@ -59,7 +59,7 @@ else:
 model_config = CN(**model_config_dict)
 
 # %%
-target_step = 1
+target_step = 4
 train_probe = ProbeDatasetMod(
     "train",
     length=configs["length"],
