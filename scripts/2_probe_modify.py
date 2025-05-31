@@ -77,279 +77,286 @@ best_epoch = {
 
 # %%
 
-target_step = 4
 
-train_probe = ProbeDatasetMod(
-    "train",
-    length=configs["length"],
-    n_iterations=configs["n"],
-    type=configs["data_type"],
-    in_test=configs["in_test"],
-    target_step=target_step,
-)
-test_probe = ProbeDatasetMod(
-    "test",
-    length=configs["length"],
-    n_iterations=configs["n"],
-    type=configs["data_type"],
-    in_test=configs["in_test"],
-    target_step=target_step,
-)
-val_probe = ProbeDatasetMod(
-    "validation",
-    length=configs["length"],
-    n_iterations=configs["n"],
-    type=configs["data_type"],
-    in_test=configs["in_test"],
-    target_step=target_step,
-)
+for target_step in [-8, -7, -6, -5, -4, -3, -2, -1, 1, 2, 3, 4, 5, 6, 7, 8]:
 
+    train_probe = ProbeDatasetMod(
+        "train",
+        length=configs["length"],
+        n_iterations=configs["n"],
+        type=configs["data_type"],
+        in_test=configs["in_test"],
+        target_step=target_step,
+    )
+    test_probe = ProbeDatasetMod(
+        "test",
+        length=configs["length"],
+        n_iterations=configs["n"],
+        type=configs["data_type"],
+        in_test=configs["in_test"],
+        target_step=target_step,
+    )
+    val_probe = ProbeDatasetMod(
+        "validation",
+        length=configs["length"],
+        n_iterations=configs["n"],
+        type=configs["data_type"],
+        in_test=configs["in_test"],
+        target_step=target_step,
+    )
 
-train_loader = DataLoader(
-    train_probe + val_probe,
-    shuffle=True,
-    pin_memory=True,
-    batch_size=batch_size,
-    num_workers=num_workers,
-)
+    train_loader = DataLoader(
+        train_probe + val_probe,
+        shuffle=True,
+        pin_memory=True,
+        batch_size=batch_size,
+        num_workers=num_workers,
+    )
 
-test_loader = DataLoader(
-    test_probe,
-    shuffle=True,  # No need to shuffle validation data
-    pin_memory=True,
-    batch_size=batch_size,
-    num_workers=num_workers,
-)
+    test_loader = DataLoader(
+        test_probe,
+        shuffle=True,  # No need to shuffle validation data
+        pin_memory=True,
+        batch_size=batch_size,
+        num_workers=num_workers,
+    )
 
-n_classes = train_probe.n_classes
-for probe_layer in range(model_config.n_layer + 1):
-    for w in ["trained", "random"]:
+    n_classes = train_probe.n_classes
+    for probe_layer in range(model_config.n_layer + 1):
+        for w in ["trained", "random"]:
 
-        print(f"Initialized: {w} Probe layer: {probe_layer}")
-        model = EncoderOnlyTransformerForProbing(model_config, probe_layer)
+            print(f"Initialized: {w} Probe layer: {probe_layer}")
+            model = EncoderOnlyTransformerForProbing(model_config, probe_layer)
 
-        if w == "random":
-            # randomly initialize the weights of the model
-            # model.apply(model._init_weights)
-            model.load_state_dict(torch.load(os.path.join(model_dir, f"model_-1.pt")))
-        else:
-            model.load_state_dict(
-                torch.load(os.path.join(model_dir, f"model_{gpt_load_epoch}.pt"))
-            )
-        model.to(device)
-        model.eval()
+            if w == "random":
+                # randomly initialize the weights of the model
+                # model.apply(model._init_weights)
+                model.load_state_dict(
+                    torch.load(os.path.join(model_dir, f"model_-1.pt"))
+                )
+            else:
+                model.load_state_dict(
+                    torch.load(os.path.join(model_dir, f"model_{gpt_load_epoch}.pt"))
+                )
+            model.to(device)
+            model.eval()
 
-        input_dim = model.transformer.wpe.weight.shape
-        # multiply elements of input_dim
-        input_dim = input_dim[0] * input_dim[1]
+            input_dim = model.transformer.wpe.weight.shape
+            # multiply elements of input_dim
+            input_dim = input_dim[0] * input_dim[1]
 
-        probe = Probe(
-            n_classes=n_classes,
-            input_dim=input_dim,
-        )
-
-        probe_path = os.path.join(
-            model_dir,
-            f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}/epoch_{best_epoch[w][probe_layer]}.pt",
-        )
-        if os.path.exists(probe_path):
-            # print(f"Loading probe from {probe_path}")
-            probe.load_state_dict(torch.load(probe_path))
-        else:
-            raise FileNotFoundError(
-                f"Probe file {probe_path} does not exist. Please train the probe first."
+            probe = Probe(
+                n_classes=n_classes,
+                input_dim=input_dim,
             )
 
-        probe.to(device)
-        probe.eval()
-
-        out_dir = (
-            model_dir
-            + f"modified_model_{gpt_load_epoch}_probe_{w}_{probe_layer}_{best_epoch[w][probe_layer]}/"
-        )
-        if not os.path.exists(out_dir):
-            os.makedirs(out_dir)
-
-        # create log.csv file
-        log_file = os.path.join(out_dir, "log.csv")
-        with open(log_file, "w", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow(
-                [
-                    "set",  # train+validation, test,
-                    "batch",
-                    "accuracy",
-                    "accuracy_0",
-                    "accuracy_1",
-                    "num_false",
-                    "p_false",
-                ]
+            probe_path = os.path.join(
+                model_dir,
+                f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}/epoch_{best_epoch[w][probe_layer]}.pt",
             )
-        for loader_name, loader in zip(
-            ["train_val", "test"], [train_loader, test_loader]
-        ):
-            for i, batch in enumerate(loader):
-                inputs, targets, targets_mod, true_out, true_out_mod = batch
-                inputs = inputs.to(device)
-                targets = targets.to(device)
-                targets_mod = targets_mod.to(device)
-                true_out_mod = true_out_mod.to(device)
+            if os.path.exists(probe_path):
+                # print(f"Loading probe from {probe_path}")
+                probe.load_state_dict(torch.load(probe_path))
+            else:
+                raise FileNotFoundError(
+                    f"Probe file {probe_path} does not exist. Please train the probe first."
+                )
 
-                x = model.forward_1of2(inputs)
-                logits = model.forward_2of2(x)
-                probs = F.softmax(logits, dim=-1)
-                y_pred = torch.argmax(probs, dim=-1)
+            probe.to(device)
+            probe.eval()
 
-                # modify x so that probe predicts modified targets
-                x_tmp = x.view(x.size(0), -1).clone()
-                # convert x_tmp to something that can be optimized
-                x_tmp = torch.nn.Parameter(x_tmp, requires_grad=True)
+            out_dir = (
+                model_dir
+                + f"modified_model_{gpt_load_epoch}_probe_{w}_{probe_layer}_{best_epoch[w][probe_layer]}/step_{int(target_step)}/"
+            )
+            if not os.path.exists(out_dir):
+                os.makedirs(out_dir)
 
-                optimizer = optim.Adam([x_tmp], lr=3e-3)
-                patience = 0
-                max_patience = 1
-                flag = False
-                for itt in range(100):
-                    # TODO: implement a better way to modify x
-                    # TODO: early stopping if loss does not decrease
+            # create log.csv file
+            log_file = os.path.join(out_dir, "log.csv")
+            with open(log_file, "w", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow(
+                    [
+                        "set",  # train+validation, test,
+                        "batch",
+                        "accuracy",
+                        "accuracy_0",
+                        "accuracy_1",
+                        "num_false",
+                        "p_false",
+                    ]
+                )
+            for loader_name, loader in zip(
+                ["train_val", "test"], [train_loader, test_loader]
+            ):
+                for i, batch in enumerate(loader):
+                    inputs, targets, targets_mod, true_out, true_out_mod = batch
+                    inputs = inputs.to(device)
+                    targets = targets.to(device)
+                    targets_mod = targets_mod.to(device)
+                    true_out_mod = true_out_mod.to(device)
 
-                    # set the optimizer to zero grad
-                    optimizer.zero_grad()
-                    outputs, _ = probe.forward(x_tmp)
-                    loss = F.cross_entropy(
-                        outputs.view(-1, outputs.size(-1)), targets_mod.view(-1)
-                    )
-                    loss.backward()
-                    optimizer.step()
+                    x = model.forward_1of2(inputs)
+                    logits = model.forward_2of2(x)
+                    probs = F.softmax(logits, dim=-1)
+                    y_pred = torch.argmax(probs, dim=-1)
 
-                    probs = F.softmax(outputs, dim=-1)
-                    _, predicted = torch.max(probs, dim=-1)
+                    # modify x so that probe predicts modified targets
+                    x_tmp = x.view(x.size(0), -1).clone()
+                    # convert x_tmp to something that can be optimized
+                    x_tmp = torch.nn.Parameter(x_tmp, requires_grad=True)
 
-                    total_ = (predicted == targets_mod.view(-1)).sum().item()
+                    optimizer = optim.Adam([x_tmp], lr=3e-3)
+                    patience = 0
+                    max_patience = 1
+                    flag = False
+                    for itt in range(100):
+                        # TODO: implement a better way to modify x
+                        # TODO: early stopping if loss does not decrease
 
-                    # print(
-                    #     f"Batch {i}, Iteration {itt}: Loss: {loss.item():.2e}, "
-                    #     f"Accuracy: {total_ / targets.size(0):.2e} ({total_}/{targets.size(0)})"
-                    # )
-                    if total_ == targets.size(0):
+                        # set the optimizer to zero grad
+                        optimizer.zero_grad()
+                        outputs, _ = probe.forward(x_tmp)
+                        loss = F.cross_entropy(
+                            outputs.view(-1, outputs.size(-1)), targets_mod.view(-1)
+                        )
+                        loss.backward()
+                        optimizer.step()
 
-                        patience += 1
+                        probs = F.softmax(outputs, dim=-1)
+                        _, predicted = torch.max(probs, dim=-1)
 
-                    if patience >= max_patience:
+                        total_ = (predicted == targets_mod.view(-1)).sum().item()
+
                         # print(
-                        #     f"Batch {i}: All targets modified successfully after {itt} iterations."
+                        #     f"Batch {i}, Iteration {itt}: Loss: {loss.item():.2e}, "
+                        #     f"Accuracy: {total_ / targets.size(0):.2e} ({total_}/{targets.size(0)})"
                         # )
-                        flag = True
-                        break
+                        if total_ == targets.size(0):
 
-                    # update x with the modified x_tmp
+                            patience += 1
 
-                if not flag:
+                        if patience >= max_patience:
+                            print(
+                                f"Batch {i}: All targets modified successfully after {itt} iterations."
+                            )
+                            flag = True
+                            break
+
+                        # update x with the modified x_tmp
+
+                    if not flag:
+                        print(
+                            f"Batch {i}: Failed to modify all targets after {itt} iterations."
+                        )
+
+                    logits = model.forward_2of2(x_tmp.view(x.size(0), *x.size()[1:]))
+                    probs_mod = F.softmax(logits, dim=-1)
+                    y_pred_mod = torch.argmax(probs_mod, dim=-1)
+
+                    acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod).all(
+                        1
+                    ).cpu().sum().item() / targets.size(0)
+
+                    # find indices where inputs[:,configs["n"]]==0
+                    mask = inputs[:, configs["n"]] == 0
+                    acc_0 = (
+                        y_pred_mod.view(y_pred_mod.size(0), -1)[mask]
+                        == true_out_mod[mask]
+                    ).all(1).cpu().sum().item() / mask.sum().item()
+                    acc_1 = (
+                        y_pred_mod.view(y_pred_mod.size(0), -1)[~mask]
+                        == true_out_mod[~mask]
+                    ).all(1).cpu().sum().item() / (~mask).sum().item()
+
+                    # acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :5].all(
+                    #     1
+                    # ).cpu().sum().item() / targets.size(0)
+                    # print(f"Batch {i}: 5: {acc:.4f}")
+
+                    # acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :10].all(
+                    #     1
+                    # ).cpu().sum().item() / targets.size(0)
+                    # print(f"Batch {i}: 10: {acc:.4f}")
+
+                    # acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :15].all(
+                    #     1
+                    # ).cpu().sum().item() / targets.size(0)
+                    # print(f"Batch {i}: 15: {acc:.4f}")
+
+                    # acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :20].all(
+                    #     1
+                    # ).cpu().sum().item() / targets.size(0)
+                    # print(f"Batch {i}: 20: {acc:.4f}")
+
+                    # find the number of indices where y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod is false
+                    num_false = (
+                        (y_pred_mod.view(y_pred_mod.size(0), -1) != true_out_mod)
+                        .sum()
+                        .item()
+                    )
+                    p_false = num_false / targets.size(0) / true_out_mod.size(-1)
+
                     print(
-                        f"Batch {i}: Failed to modify all targets after {itt} iterations."
+                        f"Batch {i}: Accuracy: {acc:.4f} ({acc_0:.4f};{acc_1:.4f}) #false predictions: {num_false:.2e}/{targets.size(0)*true_out_mod.size(-1):.2e} ({p_false:.4f})"
                     )
 
-                logits = model.forward_2of2(x_tmp.view(x.size(0), *x.size()[1:]))
-                probs_mod = F.softmax(logits, dim=-1)
-                y_pred_mod = torch.argmax(probs_mod, dim=-1)
+                    # write to log.csv
+                    with open(log_file, "a", newline="") as f:
+                        writer = csv.writer(f)
+                        writer.writerow(
+                            [
+                                loader_name,
+                                i,
+                                acc,
+                                acc_0,
+                                acc_1,
+                                num_false,
+                                p_false,
+                            ]
+                        )
+                    # save target, predictions, modified target, and modified predictions as numpy arrays
 
-                acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod).all(
-                    1
-                ).cpu().sum().item() / targets.size(0)
-
-                # find indices where inputs[:,configs["n"]]==0
-                mask = inputs[:, configs["n"]] == 0
-                acc_0 = (
-                    y_pred_mod.view(y_pred_mod.size(0), -1)[mask] == true_out_mod[mask]
-                ).all(1).cpu().sum().item() / mask.sum().item()
-                acc_1 = (
-                    y_pred_mod.view(y_pred_mod.size(0), -1)[~mask]
-                    == true_out_mod[~mask]
-                ).all(1).cpu().sum().item() / (~mask).sum().item()
-
-                # acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :5].all(
-                #     1
-                # ).cpu().sum().item() / targets.size(0)
-                # print(f"Batch {i}: 5: {acc:.4f}")
-
-                # acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :10].all(
-                #     1
-                # ).cpu().sum().item() / targets.size(0)
-                # print(f"Batch {i}: 10: {acc:.4f}")
-
-                # acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :15].all(
-                #     1
-                # ).cpu().sum().item() / targets.size(0)
-                # print(f"Batch {i}: 15: {acc:.4f}")
-
-                # acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :20].all(
-                #     1
-                # ).cpu().sum().item() / targets.size(0)
-                # print(f"Batch {i}: 20: {acc:.4f}")
-
-                # find the number of indices where y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod is false
-                num_false = (
-                    (y_pred_mod.view(y_pred_mod.size(0), -1) != true_out_mod)
-                    .sum()
-                    .item()
-                )
-                p_false = num_false / targets.size(0) / true_out_mod.size(-1)
-
-                print(
-                    f"Batch {i}: Accuracy: {acc:.4f} ({acc_0:.4f};{acc_1:.4f}) #false predictions: {num_false:.2e}/{targets.size(0)*true_out_mod.size(-1):.2e} ({p_false:.4f})"
-                )
-
-                # write to log.csv
-                with open(log_file, "a", newline="") as f:
-                    writer = csv.writer(f)
-                    writer.writerow(
-                        [
-                            loader_name,
-                            i,
-                            acc,
-                            acc_0,
-                            acc_1,
-                            num_false,
-                            p_false,
-                        ]
+                    np.save(
+                        os.path.join(
+                            out_dir, f"{loader_name}_batch_{i}_target_idx.npy"
+                        ),
+                        targets.cpu().numpy(),
                     )
-                # save target, predictions, modified target, and modified predictions as numpy arrays
+                    np.save(
+                        os.path.join(
+                            out_dir, f"{loader_name}_batch_{i}_target_idx_mod.npy"
+                        ),
+                        targets_mod.cpu().numpy(),
+                    )
+                    # np.save(
+                    #     os.path.join(out_dir, f"{loader_name}_batch_{i}_true_pred.npy"),
+                    #     true_out.cpu().numpy(),
+                    # )
+                    # np.save(
+                    #     os.path.join(out_dir, f"{loader_name}_batch_{i}_pred.npy"),
+                    #     y_pred.cpu().numpy(),
+                    # )
+                    np.save(
+                        os.path.join(out_dir, f"{loader_name}_batch_{i}_pred_mod.npy"),
+                        y_pred_mod.cpu().numpy(),
+                    )
+                    np.save(
+                        os.path.join(
+                            out_dir, f"{loader_name}_batch_{i}_true_pred_mod.npy"
+                        ),
+                        true_out_mod.cpu().numpy(),
+                    )
 
-                np.save(
-                    os.path.join(out_dir, f"{loader_name}_batch_{i}_target_idx.npy"),
-                    targets.cpu().numpy(),
-                )
-                np.save(
-                    os.path.join(
-                        out_dir, f"{loader_name}_batch_{i}_target_idx_mod.npy"
-                    ),
-                    targets_mod.cpu().numpy(),
-                )
-                # np.save(
-                #     os.path.join(out_dir, f"{loader_name}_batch_{i}_true_pred.npy"),
-                #     true_out.cpu().numpy(),
-                # )
-                # np.save(
-                #     os.path.join(out_dir, f"{loader_name}_batch_{i}_pred.npy"),
-                #     y_pred.cpu().numpy(),
-                # )
-                np.save(
-                    os.path.join(out_dir, f"{loader_name}_batch_{i}_pred_mod.npy"),
-                    y_pred_mod.cpu().numpy(),
-                )
-                np.save(
-                    os.path.join(out_dir, f"{loader_name}_batch_{i}_true_pred_mod.npy"),
-                    true_out_mod.cpu().numpy(),
-                )
-
-                # np.save(
-                #     os.path.join(out_dir, f"batch_{i}_intermediated.npy"),
-                #     x.cpu().numpy(),
-                # )
-                # np.save(
-                #     os.path.join(out_dir, f"batch_{i}_intermediated_mod.npy"),
-                #     x_tmp.view(x.size(0), *x.size()[1:]).cpu().detach().numpy(),
-                # )
+                    # np.save(
+                    #     os.path.join(out_dir, f"batch_{i}_intermediated.npy"),
+                    #     x.cpu().numpy(),
+                    # )
+                    # np.save(
+                    #     os.path.join(out_dir, f"batch_{i}_intermediated_mod.npy"),
+                    #     x_tmp.view(x.size(0), *x.size()[1:]).cpu().detach().numpy(),
+                    # )
 
 
 # %%
