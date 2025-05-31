@@ -300,36 +300,42 @@ class ProbeDatasetMod(TentDataset):
         x = bin(x)[2:].zfill(self._length)
 
         ind_least_significant = x.rfind("1")
-        if ind_least_significant == 0:
-            # target_modification = torch.randint(
-            #     low=len(self.steps) // 2, high=len(self.steps), size=1, dtype=torch.long
-            # )
-            idx_mod = np.random.randint(
-                low=len(self.steps) // 2,
-                high=len(self.steps),
-            )
-        elif ind_least_significant == self.length - 1:
-            # idx_mod = torch.randint(
-            #     low=0, high=len(self.steps) // 2, size=1, dtype=torch.long
-            # )
-            idx_mod = np.random.randint(
-                low=0,
-                high=len(self.steps) // 2,
-            )
-        else:
-            # idx_mod = torch.randint(
-            #     low=0, high=len(self.steps) // 2, size=1, dtype=torch.long
-            # )
-            idx_mod = np.random.randint(
-                low=0,
-                high=len(self.steps),
-            )
+        ##################
+        # randomly select a step to modify the least significant bit
+        # if ind_least_significant == 0:
+        #     # target_modification = torch.randint(
+        #     #     low=len(self.steps) // 2, high=len(self.steps), size=1, dtype=torch.long
+        #     # )
+        #     idx_mod = np.random.randint(
+        #         low=len(self.steps) // 2,
+        #         high=len(self.steps),
+        #     )
+        # elif ind_least_significant == self.length - 1:
+        #     # idx_mod = torch.randint(
+        #     #     low=0, high=len(self.steps) // 2, size=1, dtype=torch.long
+        #     # )
+        #     idx_mod = np.random.randint(
+        #         low=0,
+        #         high=len(self.steps) // 2,
+        #     )
+        # else:
+        #     # idx_mod = torch.randint(
+        #     #     low=0, high=len(self.steps) // 2, size=1, dtype=torch.long
+        #     # )
+        #     idx_mod = np.random.randint(
+        #         low=0,
+        #         high=len(self.steps),
+        #     )
+        # ind_least_significant += self.steps[idx_mod]
 
-        ind_least_significant += self.steps[idx_mod]
+        # reduce the index by the target step
+        ind_least_significant -= self.target_step
+
         # clamp the index to be within the bounds of the string
         ind_least_significant = max(-1, min(ind_least_significant, self._length - 1))
         x0 = [ind_least_significant if ind_least_significant >= 0 else self.length]
 
+        ####################
         x_tmp = [x]
         for _ in range(self.n_iterations):
 
@@ -351,9 +357,11 @@ class ProbeDatasetMod(TentDataset):
                     y = x_tmp[-1][1:ind_least_significant]
 
                 # TODO: ignore later bits - set to zero? or keep them?
-                y += x_tmp[-1][ind_least_significant:]
-                y += "0"  # pad y with a zero
-                # y += "0" * (len(x_tmp[-1][ind_least_significant:]) + 1)
+                # keep the bits after the least significant bit
+                # y += x_tmp[-1][ind_least_significant:]
+                # y += "0"  # pad y with a zero
+                # ignore bits after the least significant bit
+                y += "0" * (len(x_tmp[-1][ind_least_significant:]) + 1)
                 ###
 
                 ind_least_significant -= 1

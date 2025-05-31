@@ -190,7 +190,7 @@ for probe_layer in range(model_config.n_layer + 1):
             # convert x_tmp to something that can be optimized
             x_tmp = torch.nn.Parameter(x_tmp, requires_grad=True)
 
-            optimizer = optim.Adam([x_tmp], lr=3e-3)
+            optimizer = optim.Adam([x_tmp], lr=3e-2)
             for _ in range(100):
                 # TODO: implement a better way to modify x
                 # TODO: early stopping if loss does not decrease
@@ -241,6 +241,10 @@ for probe_layer in range(model_config.n_layer + 1):
             np.save(
                 os.path.join(out_dir, f"batch_{i}_intermediated.npy"),
                 x.cpu().numpy(),
+            )
+            np.save(
+                os.path.join(out_dir, f"batch_{i}_intermediated_mod.npy"),
+                x_tmp.view(x.size(0), *x.size()[1:]).cpu().numpy(),
             )
 
             acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod).all(
