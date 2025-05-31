@@ -245,28 +245,28 @@ for probe_layer in range(model_config.n_layer + 1):
                 y_pred_mod.view(y_pred_mod.size(0), -1)[~mask] == true_out_mod[~mask]
             ).all(1).cpu().sum().item() / (~mask).sum().item()
 
-            print(f"Batch {i}: Accuracy: {acc:.4e} ({acc_0:.4e};{acc_1:.4e})")
+            print(f"Batch {i}: Accuracy: {acc:.4f} ({acc_0:.4f};{acc_1:.4f})")
 
             # print(true_out_mod.shape) # [131072, 23]
             acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :5].all(
                 1
             ).cpu().sum().item() / targets.size(0)
-            print(f"Batch {i}: 5: {acc:.4e}")
+            print(f"Batch {i}: 5: {acc:.4f}")
 
             acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :10].all(
                 1
             ).cpu().sum().item() / targets.size(0)
-            print(f"Batch {i}: 10: {acc:.4e}")
+            print(f"Batch {i}: 10: {acc:.4f}")
 
             acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :15].all(
                 1
             ).cpu().sum().item() / targets.size(0)
-            print(f"Batch {i}: 15: {acc:.4e}")
+            print(f"Batch {i}: 15: {acc:.4f}")
 
             acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :20].all(
                 1
             ).cpu().sum().item() / targets.size(0)
-            print(f"Batch {i}: 20: {acc:.4e}")
+            print(f"Batch {i}: 20: {acc:.4f}")
 
             # find the number of indices where y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod is false
             num_false = (
