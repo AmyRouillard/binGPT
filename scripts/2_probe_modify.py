@@ -180,6 +180,7 @@ for probe_layer in range(model_config.n_layer + 1):
             inputs = inputs.to(device)
             targets = targets.to(device)
             targets_mod = targets_mod.to(device)
+            true_out_mod = true_out_mod.to(device)
 
             x = model.forward_1of2(inputs)
             logits = model.forward_2of2(x)
@@ -209,6 +210,11 @@ for probe_layer in range(model_config.n_layer + 1):
             logits = model.forward_2of2(x_tmp.view(x.size(0), *x.size()[1:]))
             probs_mod = F.softmax(logits, dim=-1)
             y_pred_mod = torch.argmax(probs_mod, dim=-1)
+
+            acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod).all(
+                1
+            ).cpu().sum().item() / targets.size(0)
+            print(f"Batch {i}: Accuracy of modified predictions: {acc:.4f}")
 
             # save target, predictions, modified target, and modified predictions as numpy arrays
             if not os.path.exists(out_dir):
@@ -247,11 +253,6 @@ for probe_layer in range(model_config.n_layer + 1):
                 os.path.join(out_dir, f"batch_{i}_intermediated_mod.npy"),
                 x_tmp.view(x.size(0), *x.size()[1:]).cpu().detach().numpy(),
             )
-
-            acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod).all(
-                1
-            ).cpu().sum().item() / targets.size(0)
-            print(f"Batch {i}: Accuracy of modified predictions: {acc:.4f}")
 
 
 # %%
