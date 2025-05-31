@@ -358,10 +358,10 @@ class ProbeDatasetMod(TentDataset):
 
                 # TODO: ignore later bits - set to zero? or keep them?
                 # keep the bits after the least significant bit
-                # y += x_tmp[-1][ind_least_significant:]
-                # y += "0"  # pad y with a zero
+                y += x_tmp[-1][ind_least_significant:]
+                y += "0"  # pad y with a zero
                 # ignore bits after the least significant bit
-                y += "0" * (len(x_tmp[-1][ind_least_significant:]) + 1)
+                # y += "0" * (len(x_tmp[-1][ind_least_significant:]) + 1)
                 ###
 
                 ind_least_significant -= 1
