@@ -179,6 +179,7 @@ for probe_layer in range(model_config.n_layer + 1):
             inputs, targets, targets_mod, true_out, true_out_mod = batch
             inputs = inputs.to(device)
             targets = targets.to(device)
+            targets_mod = targets_mod.to(device)
 
             x = model.forward_1of2(inputs)
             logits = model.forward_2of2(x)
