@@ -241,11 +241,11 @@ for probe_layer in range(model_config.n_layer + 1):
             mask = inputs[:, configs["n"]] == 0
             acc = (
                 y_pred_mod.view(y_pred_mod.size(0), -1)[mask] == true_out_mod[mask]
-            ).all(1).cpu().sum().item() / mask.size(0)
+            ).all(1).cpu().sum().item() / mask.sum().item()
             print(f"Batch {i}: masked: {acc:.4e}")
             acc = (
                 y_pred_mod.view(y_pred_mod.size(0), -1)[~mask] == true_out_mod[~mask]
-            ).all(1).cpu().sum().item() / mask.size(0)
+            ).all(1).cpu().sum().item() / (~mask).sum().item()
             print(f"Batch {i}: ~masked: {acc:.4e}")
 
             # # print(true_out_mod.shape) # [131072, 23]
