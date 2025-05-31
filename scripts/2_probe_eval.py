@@ -228,7 +228,7 @@ for probe_layer in range(model_config.n_layer + 1):
             "test_accuracy": test_accuracy,
             "train_accuracy": train_accuracy,
         }
-        with open(os.path.join(eval_dir, f"results.json"), "w") as f:
+        with open(eval_dir + "results.json", "w") as f:
             json.dump(results, f, indent=4)
 
 
