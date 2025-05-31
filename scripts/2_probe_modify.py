@@ -205,7 +205,7 @@ for probe_layer in range(model_config.n_layer + 1):
                 # convert x_tmp to something that can be optimized
                 x_tmp = torch.nn.Parameter(x_tmp, requires_grad=True)
 
-                optimizer = optim.Adam([x_tmp], lr=3e-3)
+                optimizer = optim.Adam([x_tmp], lr=3e-2)
                 patience = 0
                 max_patience = 0
                 flag = False
