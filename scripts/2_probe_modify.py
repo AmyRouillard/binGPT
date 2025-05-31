@@ -117,20 +117,17 @@ test_loader = DataLoader(
 
 best_epoch = {
     "random": {
-        0: 0,
-        # 1: 0,
-        # 2: 0,
-        # 3: 0,
-        # 4: 0,
+        0: 135,
+        1: 130,
+        2: 129,
     },
     "trained": {
-        0: 0,
-        # 1: 0,
-        # 2: 0,
-        # 3: 0,
-        # 4: 0,
+        0: 100,
+        1: 57,
+        2: 23,
     },
 }
+
 
 for probe_layer in range(model_config.n_layer + 1):
     for w in ["random", "trained"]:
@@ -173,7 +170,10 @@ for probe_layer in range(model_config.n_layer + 1):
         probe.to(device)
         probe.eval()
 
-        out_dir = model_dir + f"modified_{gpt_load_epoch}_{w}_{probe_layer}/"
+        out_dir = (
+            model_dir
+            + f"modified_model_{gpt_load_epoch}_probe_{w}_{probe_layer}_{best_epoch[w][probe_layer]}/"
+        )
 
         for i, batch in enumerate(test_loader):
             inputs, targets, targets_mod, true_out, true_out_mod = batch
