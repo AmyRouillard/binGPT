@@ -194,7 +194,7 @@ for probe_layer in range(model_config.n_layer + 1):
 
             optimizer = optim.Adam([x_tmp], lr=3e-2)
             patience = 0
-            max_patience = 10
+            max_patience = 0
             for itt in range(10):
                 # TODO: implement a better way to modify x
                 # TODO: early stopping if loss does not decrease
