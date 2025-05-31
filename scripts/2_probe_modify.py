@@ -208,7 +208,7 @@ for probe_layer in range(model_config.n_layer + 1):
 
                 probs = F.softmax(outputs, dim=-1)
                 _, predicted = torch.max(probs, dim=-1)
-                print(predicted.shape, targets_mod.view(predicted.size(0), -1).shape)
+                print(predicted.shape, targets_mod.view(-1).shape)
                 total_ = (
                     (predicted == targets_mod.view(predicted.size(0), -1)).sum().item()
                 )
