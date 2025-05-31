@@ -216,26 +216,34 @@ for probe_layer in range(model_config.n_layer + 1):
             ).cpu().sum().item() / targets.size(0)
             print(f"Batch {i}: Accuracy of modified predictions: {acc:.4f}")
 
-            # print(true_out_mod.shape) # [131072, 23]
-            acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :5].all(
-                1
-            ).cpu().sum().item() / targets.size(0)
-            print(f"Batch {i}: 5: {acc:.4f}")
+            # # print(true_out_mod.shape) # [131072, 23]
+            # acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :5].all(
+            #     1
+            # ).cpu().sum().item() / targets.size(0)
+            # print(f"Batch {i}: 5: {acc:.4f}")
 
-            acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :10].all(
-                1
-            ).cpu().sum().item() / targets.size(0)
-            print(f"Batch {i}: 10: {acc:.4f}")
+            # acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :10].all(
+            #     1
+            # ).cpu().sum().item() / targets.size(0)
+            # print(f"Batch {i}: 10: {acc:.4f}")
 
-            acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :15].all(
-                1
-            ).cpu().sum().item() / targets.size(0)
-            print(f"Batch {i}: 15: {acc:.4f}")
+            # acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :15].all(
+            #     1
+            # ).cpu().sum().item() / targets.size(0)
+            # print(f"Batch {i}: 15: {acc:.4f}")
 
-            acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :20].all(
-                1
-            ).cpu().sum().item() / targets.size(0)
-            print(f"Batch {i}: 20: {acc:.4f}")
+            # acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :20].all(
+            #     1
+            # ).cpu().sum().item() / targets.size(0)
+            # print(f"Batch {i}: 20: {acc:.4f}")
+
+            # find the number of indices where y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod is false
+            num_false = (y_pred_mod.view(y_pred_mod.size(0), -1) != true_out_mod).sum()
+            print(num_false.shape)
+
+            print(
+                f"Batch {i}: Number of false predictions: {num_false.item()} out of {targets.size(0)}"
+            )
 
     # # save target, predictions, modified target, and modified predictions as numpy arrays
     # if not os.path.exists(out_dir):
