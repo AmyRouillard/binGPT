@@ -42,17 +42,17 @@ if os.path.exists(os.path.join(model_dir, "model_config.json")):
 else:
     raise ValueError("No model_config.json found in model_dir, using default configs.")
 
-if os.path.exists(os.path.join(model_dir, "trainer_config.json")):
-    with open(os.path.join(model_dir, "trainer_config.json"), "r") as f:
-        train_config_dict = json.load(f)
+# if os.path.exists(os.path.join(model_dir, "trainer_config.json")):
+#     with open(os.path.join(model_dir, "trainer_config.json"), "r") as f:
+#         train_config_dict = json.load(f)
 
-    train_config = Trainer.get_default_config()
-    train_config.merge_from_dict(train_config_dict)
+#     train_config = Trainer.get_default_config()
+#     train_config.merge_from_dict(train_config_dict)
 
-else:
-    raise ValueError(
-        "No trainer_config.json found in model_dir, using default configs."
-    )
+# else:
+#     raise ValueError(
+#         "No trainer_config.json found in model_dir, using default configs."
+#     )
 
 model_config = CN(**model_config_dict)
 
@@ -91,7 +91,7 @@ print(f"Number of classes: {n_classes}")
 
 # helper function evaluate the prob on accuracy
 def evaluate_probe(model, probe, data_loader, device, save_path=None):
-    probe.eval()
+
     total_correct = 0
     total_samples = 0
 
@@ -129,7 +129,7 @@ def evaluate_probe(model, probe, data_loader, device, save_path=None):
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Running on device:", device)
 
-batch_size = 2**17  # train_config.batch_size
+batch_size = 2**17
 
 
 train_loader = DataLoader(
@@ -150,18 +150,14 @@ test_loader = DataLoader(
 
 best_epoch = {
     "random": {
-        0: 0,
-        # 1: 0,
-        # 2: 0,
-        # 3: 0,
-        # 4: 0,
+        0: 135,
+        1: 130,
+        2: 129,
     },
     "trained": {
-        0: 0,
-        # 1: 0,
-        # 2: 0,
-        # 3: 0,
-        # 4: 0,
+        0: 100,
+        1: 57,
+        2: 23,
     },
 }
 
@@ -209,7 +205,7 @@ for probe_layer in range(model_config.n_layer + 1):
 
         eval_dir = (
             model_dir
-            + f"eval_model_{gpt_load_epoch}_probe_{w}_{probe_layer}_epoch_{best_epoch[w][probe_layer]}/"
+            + f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}/epoch_{best_epoch[w][probe_layer]}_"
         )
 
         # Evaluate the probe on the test set
