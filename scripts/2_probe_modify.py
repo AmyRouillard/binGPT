@@ -245,7 +245,7 @@ for probe_layer in range(model_config.n_layer + 1):
             )
             np.save(
                 os.path.join(out_dir, f"batch_{i}_intermediated_mod.npy"),
-                x_tmp.view(x.size(0), *x.size()[1:]).cpu().numpy(),
+                x_tmp.view(x.size(0), *x.size()[1:]).cpu().detach().numpy(),
             )
 
             acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod).all(
