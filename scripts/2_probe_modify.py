@@ -243,7 +243,7 @@ for probe_layer in range(model_config.n_layer + 1):
             )
 
             print(
-                f"Batch {i}: Number of false predictions: {num_false:.2e} out of {targets.size(0)*true_out_mod.size(-1):.2e} ({num_false/targets.size(0)*true_out_mod.size(-1):.2e})"
+                f"Batch {i}: Number of false predictions: {num_false:.2e} out of {targets.size(0)*true_out_mod.size(-1):.2e} ({num_false/targets.size(0)/true_out_mod.size(-1):.2e})"
             )
 
     # # save target, predictions, modified target, and modified predictions as numpy arrays
