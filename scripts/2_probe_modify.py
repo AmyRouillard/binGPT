@@ -60,7 +60,7 @@ model_config = CN(**model_config_dict)
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-batch_size = 2**17  # train_config.batch_size
+batch_size = 2**18  # train_config.batch_size
 
 best_epoch = {
     "random": {
