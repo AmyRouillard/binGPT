@@ -238,11 +238,12 @@ for probe_layer in range(model_config.n_layer + 1):
             # print(f"Batch {i}: 20: {acc:.4f}")
 
             # find the number of indices where y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod is false
-            num_false = (y_pred_mod.view(y_pred_mod.size(0), -1) != true_out_mod).sum()
-            print(num_false.shape)
+            num_false = (
+                (y_pred_mod.view(y_pred_mod.size(0), -1) != true_out_mod).sum().item()
+            )
 
             print(
-                f"Batch {i}: Number of false predictions: {num_false.item()} out of {targets.size(0)}"
+                f"Batch {i}: Number of false predictions: {num_false:.2e} out of {targets.size(0)*true_out_mod.size(-1):.2e} ({num_false/targets.size(0)*true_out_mod.size(-1):.2e})"
             )
 
     # # save target, predictions, modified target, and modified predictions as numpy arrays
