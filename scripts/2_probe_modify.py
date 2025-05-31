@@ -211,14 +211,14 @@ for probe_layer in range(model_config.n_layer + 1):
 
                 total_ = (predicted == targets_mod.view(-1)).sum().item()
 
-                print(
-                    f"Batch {i}, Iteration {itt}: Loss: {loss.item():.2e}, "
-                    f"Accuracy: {total_ / targets.size(0):.2e} ({total_}/{targets.size(0)})"
-                )
+                # print(
+                #     f"Batch {i}, Iteration {itt}: Loss: {loss.item():.2e}, "
+                #     f"Accuracy: {total_ / targets.size(0):.2e} ({total_}/{targets.size(0)})"
+                # )
                 if total_ == targets.size(0):
-                    print(
-                        f"Batch {i}: All targets modified successfully after {itt} iterations."
-                    )
+                    # print(
+                    #     f"Batch {i}: All targets modified successfully after {itt} iterations."
+                    # )
                     break
 
                 # update x with the modified x_tmp
@@ -236,11 +236,11 @@ for probe_layer in range(model_config.n_layer + 1):
             mask = inputs[:, configs["n"]] == 0
             acc = (
                 y_pred_mod.view(y_pred_mod.size(0), -1)[mask] == true_out_mod[mask]
-            ).all(1).cpu().sum().item() / mask.sum().item()
+            ).all(1).cpu().sum().item() / targets.size(0)
             print(f"Batch {i}: masked: {acc:.4f}")
             acc = (
                 y_pred_mod.view(y_pred_mod.size(0), -1)[~mask] == true_out_mod[~mask]
-            ).all(1).cpu().sum().item() / mask.sum().item()
+            ).all(1).cpu().sum().item() / targets.size(0)
             print(f"Batch {i}: ~masked: {acc:.4f}")
 
             # # print(true_out_mod.shape) # [131072, 23]
