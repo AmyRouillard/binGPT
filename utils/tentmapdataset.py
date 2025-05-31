@@ -338,7 +338,7 @@ class ProbeDatasetMod(TentDataset):
         ####################
         if ind_least_significant >= 0:
             # make sure the least significant bit is set to 1
-            x[ind_least_significant] = "1"
+            x = x[:ind_least_significant] + "1" + x[ind_least_significant + 1 :]
 
         x_tmp = [x]
         for _ in range(self.n_iterations):
