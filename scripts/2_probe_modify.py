@@ -123,7 +123,7 @@ test_loader = DataLoader(
 
 n_classes = train_probe.n_classes
 for probe_layer in range(model_config.n_layer + 1):
-    for w in ["random", "trained"]:
+    for w in ["trained", "random"]:
 
         print(f"Initialized: {w} Probe layer: {probe_layer}")
         model = EncoderOnlyTransformerForProbing(model_config, probe_layer)
