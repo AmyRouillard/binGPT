@@ -175,7 +175,7 @@ for probe_layer in range(model_config.n_layer + 1):
             + f"modified_model_{gpt_load_epoch}_probe_{w}_{probe_layer}_{best_epoch[w][probe_layer]}/"
         )
 
-        for i, batch in enumerate(test_loader):
+        for i, batch in enumerate(train_loader):
             inputs, targets, targets_mod, true_out, true_out_mod = batch
             inputs = inputs.to(device)
             targets = targets.to(device)
