@@ -195,7 +195,7 @@ for probe_layer in range(model_config.n_layer + 1):
             optimizer = optim.Adam([x_tmp], lr=3e-3)
             patience = 0
             max_patience = 0
-            for itt in range(10):
+            for itt in range(100):
                 # TODO: implement a better way to modify x
                 # TODO: early stopping if loss does not decrease
 
@@ -235,47 +235,47 @@ for probe_layer in range(model_config.n_layer + 1):
             acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod).all(
                 1
             ).cpu().sum().item() / targets.size(0)
-            print(f"Batch {i}: Accuracy of modified predictions: {acc:.4e}")
 
             # find indices where inputs[:,configs["n"]]==0
             mask = inputs[:, configs["n"]] == 0
-            acc = (
+            acc_0 = (
                 y_pred_mod.view(y_pred_mod.size(0), -1)[mask] == true_out_mod[mask]
             ).all(1).cpu().sum().item() / mask.sum().item()
-            print(f"Batch {i}: masked: {acc:.4e}")
-            acc = (
+            acc_1 = (
                 y_pred_mod.view(y_pred_mod.size(0), -1)[~mask] == true_out_mod[~mask]
             ).all(1).cpu().sum().item() / (~mask).sum().item()
-            print(f"Batch {i}: ~masked: {acc:.4e}")
 
-            # # print(true_out_mod.shape) # [131072, 23]
-            # acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :5].all(
-            #     1
-            # ).cpu().sum().item() / targets.size(0)
-            # print(f"Batch {i}: 5: {acc:.4e}")
+            print(f"Batch {i}: Accuracy: {acc:.4e} ({acc_0:.4e};{acc_1:.4e})")
 
-            # acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :10].all(
-            #     1
-            # ).cpu().sum().item() / targets.size(0)
-            # print(f"Batch {i}: 10: {acc:.4e}")
+            # print(true_out_mod.shape) # [131072, 23]
+            acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :5].all(
+                1
+            ).cpu().sum().item() / targets.size(0)
+            print(f"Batch {i}: 5: {acc:.4e}")
 
-            # acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :15].all(
-            #     1
-            # ).cpu().sum().item() / targets.size(0)
-            # print(f"Batch {i}: 15: {acc:.4e}")
+            acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :10].all(
+                1
+            ).cpu().sum().item() / targets.size(0)
+            print(f"Batch {i}: 10: {acc:.4e}")
 
-            # acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :20].all(
-            #     1
-            # ).cpu().sum().item() / targets.size(0)
-            # print(f"Batch {i}: 20: {acc:.4e}")
+            acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :15].all(
+                1
+            ).cpu().sum().item() / targets.size(0)
+            print(f"Batch {i}: 15: {acc:.4e}")
+
+            acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :20].all(
+                1
+            ).cpu().sum().item() / targets.size(0)
+            print(f"Batch {i}: 20: {acc:.4e}")
 
             # find the number of indices where y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod is false
             num_false = (
                 (y_pred_mod.view(y_pred_mod.size(0), -1) != true_out_mod).sum().item()
             )
+            p_false = num_false / targets.size(0) / true_out_mod.size(-1)
 
             print(
-                f"Batch {i}: Number of false predictions: {num_false:.2e} out of {targets.size(0)*true_out_mod.size(-1):.2e} ({num_false/targets.size(0)/true_out_mod.size(-1):.4f})"
+                f"#false predictions: {num_false:.2e}/{targets.size(0)*true_out_mod.size(-1):.2e} ({p_false:.4f})"
             )
 
     # # save target, predictions, modified target, and modified predictions as numpy arrays
