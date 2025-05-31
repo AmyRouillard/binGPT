@@ -193,7 +193,7 @@ for probe_layer in range(model_config.n_layer + 1):
             x_tmp = torch.nn.Parameter(x_tmp, requires_grad=True)
 
             optimizer = optim.Adam([x_tmp], lr=3e-2)
-            for _ in range(100):
+            for itt in range(10):
                 # TODO: implement a better way to modify x
                 # TODO: early stopping if loss does not decrease
 
@@ -205,6 +205,21 @@ for probe_layer in range(model_config.n_layer + 1):
                 )
                 loss.backward()
                 optimizer.step()
+
+                probs = F.softmax(outputs, dim=-1)
+                _, predicted = torch.max(probs, dim=-1)
+                total_ = (predicted == targets_mod).cpu().sum().item()
+
+                print(
+                    f"Batch {i}, Iteration {itt}: Loss: {loss.item():.2e}, "
+                    f"Accuracy: {total_ / targets.size(0):.2e} ({total_}/{targets.size(0)})"
+                )
+                if total_ == targets.size(0):
+                    print(
+                        f"Batch {i}: All targets modified successfully after {itt} iterations."
+                    )
+                    break
+
                 # update x with the modified x_tmp
 
             logits = model.forward_2of2(x_tmp.view(x.size(0), *x.size()[1:]))
