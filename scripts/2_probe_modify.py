@@ -207,7 +207,7 @@ for probe_layer in range(model_config.n_layer + 1):
 
                 optimizer = optim.Adam([x_tmp], lr=3e-2)
                 patience = 0
-                max_patience = 0
+                max_patience = 1
                 flag = False
                 for itt in range(100):
                     # TODO: implement a better way to modify x
@@ -232,13 +232,14 @@ for probe_layer in range(model_config.n_layer + 1):
                     #     f"Accuracy: {total_ / targets.size(0):.2e} ({total_}/{targets.size(0)})"
                     # )
                     if total_ == targets.size(0):
-                        flag = True
+
                         patience += 1
 
                     if patience >= max_patience:
                         # print(
                         #     f"Batch {i}: All targets modified successfully after {itt} iterations."
                         # )
+                        flag = True
                         break
 
                     # update x with the modified x_tmp
