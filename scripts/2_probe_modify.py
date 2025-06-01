@@ -334,6 +334,7 @@ for target_step in [-8, -7, -6, -5, -4, -3, -2, -1, 1, 2, 3, 4, 5, 6, 7, 8]:
                     )
                     for idx in idxs:
                         print(
+                            f"\n{targets[mask][mask_incorrect][idx]}->{targets_mod[mask][mask_incorrect][idx]}"
                             f"\n{inputs[mask][mask_incorrect][idx]}"
                             f"\n{y_pred[mask][mask_incorrect][idx]}"
                             f"\n{y_pred_mod[mask][mask_incorrect][idx]}"
