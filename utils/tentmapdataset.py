@@ -300,7 +300,7 @@ class ProbeDatasetMod(TentDataset):
         x = bin(x)[2:].zfill(self._length)
 
         ind_least_significant = x.rfind("1")
-        old_ind_least_significant = x.rfind("1")
+        # old_ind_least_significant = x.rfind("1")
         ##################
         # randomly select a step to modify the least significant bit
         # if ind_least_significant == 0:

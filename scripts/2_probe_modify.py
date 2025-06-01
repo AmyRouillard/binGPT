@@ -325,6 +325,12 @@ for target_step in [
                         f"Batch {i}: Accuracy: {acc:.4f} ({acc_0:.4f};{acc_1:.4f}) #false predictions: {num_false:.2e}/{targets.size(0)*true_out_mod.size(-1):.2e} ({p_false:.4f})"
                     )
 
+                    print(
+                        y_pred_mod.shape,
+                        y_pred.shape,
+                        y_pred_mod[mask].shape,
+                        y_pred[mask].shape,
+                    )
                     N_unchanged0 = (
                         (y_pred_mod[mask] == y_pred[mask]).all(1).cpu().sum().item()
                     )
