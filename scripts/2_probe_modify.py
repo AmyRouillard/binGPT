@@ -140,7 +140,7 @@ for target_step in [
 
     n_classes = train_probe.n_classes
     for probe_layer in range(model_config.n_layer + 1):
-        for w in ["trained", "random"]:
+        for w in ["trained"]:  # , "random"]:
 
             print(f"Initialized: {w} Probe layer: {probe_layer}")
             model = EncoderOnlyTransformerForProbing(model_config, probe_layer)
@@ -335,7 +335,6 @@ for target_step in [
                         )
 
                     n_sample = 2
-
                     mask_incorrect = (
                         y_pred_mod.view(y_pred_mod.size(0), -1)[mask]
                         == true_out_mod[mask]
@@ -355,6 +354,7 @@ for target_step in [
                             f"\n{true_out_mod[mask][mask_incorrect][idx]}\n"
                         )
 
+                    n_sample = 2
                     mask_incorrect = (
                         y_pred_mod.view(y_pred_mod.size(0), -1)[~mask]
                         == true_out_mod[~mask]
