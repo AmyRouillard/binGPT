@@ -318,17 +318,17 @@ for target_step in [-8, -7, -6, -5, -4, -3, -2, -1, 1, 2, 3, 4, 5, 6, 7, 8]:
                         )
                     # save target, predictions, modified target, and modified predictions as numpy arrays
 
-                    np.save(
-                        os.path.join(
-                            out_dir, f"{loader_name}_batch_{i}_target_idx.npy"
-                        ),
-                        targets.cpu().numpy(),
-                    )
-                    np.save(
-                        os.path.join(
-                            out_dir, f"{loader_name}_batch_{i}_target_idx_mod.npy"
-                        ),
-                        targets_mod.cpu().numpy(),
+                    # np.save(
+                    #     os.path.join(
+                    #         out_dir, f"{loader_name}_batch_{i}_target_idx.npy"
+                    #     ),
+                    #     targets.cpu().numpy(),
+                    # )
+                    # np.save(
+                    #     os.path.join(
+                    #         out_dir, f"{loader_name}_batch_{i}_target_idx_mod.npy"
+                    #     ),
+                    #     targets_mod.cpu().numpy(),
                     )
                     # np.save(
                     #     os.path.join(out_dir, f"{loader_name}_batch_{i}_true_pred.npy"),
@@ -338,17 +338,16 @@ for target_step in [-8, -7, -6, -5, -4, -3, -2, -1, 1, 2, 3, 4, 5, 6, 7, 8]:
                     #     os.path.join(out_dir, f"{loader_name}_batch_{i}_pred.npy"),
                     #     y_pred.cpu().numpy(),
                     # )
-                    np.save(
-                        os.path.join(out_dir, f"{loader_name}_batch_{i}_pred_mod.npy"),
-                        y_pred_mod.cpu().numpy(),
-                    )
-                    np.save(
-                        os.path.join(
-                            out_dir, f"{loader_name}_batch_{i}_true_pred_mod.npy"
-                        ),
-                        true_out_mod.cpu().numpy(),
-                    )
-
+                    # np.save(
+                    #     os.path.join(out_dir, f"{loader_name}_batch_{i}_pred_mod.npy"),
+                    #     y_pred_mod.cpu().numpy(),
+                    # )
+                    # np.save(
+                    #     os.path.join(
+                    #         out_dir, f"{loader_name}_batch_{i}_true_pred_mod.npy"
+                    #     ),
+                    #     true_out_mod.cpu().numpy(),
+                    # )
                     # np.save(
                     #     os.path.join(out_dir, f"batch_{i}_intermediated.npy"),
                     #     x.cpu().numpy(),
