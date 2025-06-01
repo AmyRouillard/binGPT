@@ -457,6 +457,6 @@ for target_step in [
                     #     os.path.join(out_dir, f"batch_{i}_intermediated_mod.npy"),
                     #     x_tmp.view(x.size(0), *x.size()[1:]).cpu().detach().numpy(),
                     # )
-
+                    break
 
 # %%
