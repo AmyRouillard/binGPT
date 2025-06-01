@@ -142,7 +142,7 @@ class Trainer:
             f"patience={self.config.early_stopping_patience}, "
             f"patience_counter={self.patience_counter}, "
             f"stop_flag={self.stop_training_flag}"
-            f"val_acc={val_metrics.get('val_accuracy', 'N/A'):.2e}"
+            f"val_acc={val_metrics.get('val_accuracy', 'N/A'):.6f}"
         )
 
     def run(self):

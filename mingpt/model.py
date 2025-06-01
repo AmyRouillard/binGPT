@@ -461,7 +461,7 @@ class Probe(nn.Module):
         self.W = nn.Linear(
             self.input_dim,
             self.n_classes,
-            bias=True,
+            bias=False,
         )
 
     def forward(self, x, targets=None):
