@@ -326,24 +326,10 @@ for target_step in [
                     )
 
                     N_unchanged0 = (
-                        (
-                            y_pred_mod.view(y_pred_mod.size(0), -1)[mask]
-                            == y_pred.view(y_pred.size(0), -1)[mask]
-                        )
-                        .all(1)
-                        .cpu()
-                        .sum()
-                        .item()
+                        (y_pred_mod[mask] == y_pred[mask]).all(1).cpu().sum().item()
                     )
                     N_unchanged1 = (
-                        (
-                            y_pred_mod.view(y_pred_mod.size(0), -1)[~mask]
-                            == y_pred.view(y_pred.size(0), -1)[~mask]
-                        )
-                        .all(1)
-                        .cpu()
-                        .sum()
-                        .item()
+                        (y_pred_mod[~mask] == y_pred[~mask]).all(1).cpu().sum().item()
                     )
                     print(
                         f"Changed: {targets.size(0)-N_unchanged0}/{targets.size(0)} ({(targets.size(0)-N_unchanged0)/targets.size(0):.4f})"
