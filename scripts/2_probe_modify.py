@@ -278,20 +278,19 @@ for target_step in [
                     probs_mod = F.softmax(logits, dim=-1)
                     y_pred_mod = torch.argmax(probs_mod, dim=-1)
 
-                    acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod).all(
+                    print(y_pred_mod.shape, true_out_mod.shape)
+                    acc = (y_pred_mod == true_out_mod).all(
                         1
                     ).cpu().sum().item() / targets.size(0)
 
                     # find indices where inputs[:,configs["n"]]==0
                     mask = inputs[:, configs["n"] - 1] == 0
-                    acc_0 = (
-                        y_pred_mod.view(y_pred_mod.size(0), -1)[mask]
-                        == true_out_mod[mask]
-                    ).all(1).cpu().sum().item() / mask.sum().item()
-                    acc_1 = (
-                        y_pred_mod.view(y_pred_mod.size(0), -1)[~mask]
-                        == true_out_mod[~mask]
-                    ).all(1).cpu().sum().item() / (~mask).sum().item()
+                    acc_0 = (y_pred_mod[mask] == true_out_mod[mask]).all(
+                        1
+                    ).cpu().sum().item() / mask.sum().item()
+                    acc_1 = (y_pred_mod[~mask] == true_out_mod[~mask]).all(
+                        1
+                    ).cpu().sum().item() / (~mask).sum().item()
 
                     # acc = (y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod)[:, :5].all(
                     #     1
