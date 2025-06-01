@@ -352,50 +352,48 @@ for target_step in [
                             ]
                         )
 
-                    # if w == "trained":
-                    #     n_sample = 1
-                    #     mask_incorrect = (
-                    #         y_pred_mod.view(y_pred_mod.size(0), -1)[mask]
-                    #         == true_out_mod[mask]
-                    #     ).all(1) == False
-                    #     N = y_pred_mod[mask][mask_incorrect].size(0)
-                    #     if N < n_sample:
-                    #         n_sample = N
-                    #     idxs = torch.randperm(N)[:n_sample]
-                    #     # print y_pred_mod[idx]
-                    #     print(
-                    #         f"No flip q={configs["n"]} mod={target_step} #incorrect={N}:"
-                    #     )
-                    #     for idx in idxs:
-                    #         print(
-                    #             f"{targets[mask][mask_incorrect][idx]}->{targets_mod[mask][mask_incorrect][idx]}"
-                    #             f"\n{inputs[mask][mask_incorrect][idx]}"
-                    #             f"\n{y_pred[mask][mask_incorrect][idx]}"
-                    #             f"\n{y_pred_mod[mask][mask_incorrect][idx]}"
-                    #             f"\n{true_out_mod[mask][mask_incorrect][idx]}\n"
-                    #         )
+                    if w == "trained":
+                        n_sample = 1
+                        mask_incorrect = (
+                            y_pred_mod[mask] == y_pred[mask]  # true_out_mod[mask]
+                        ).all(1) == False
+                        N = y_pred_mod[mask][mask_incorrect].size(0)
+                        if N < n_sample:
+                            n_sample = N
+                        idxs = torch.randperm(N)[:n_sample]
+                        # print y_pred_mod[idx]
+                        print(
+                            f"No flip q={configs["n"]} mod={target_step} #incorrect={N}:"
+                        )
+                        for idx in idxs:
+                            print(
+                                f"{targets[mask][mask_incorrect][idx]}->{targets_mod[mask][mask_incorrect][idx]}"
+                                f"\n{inputs[mask][mask_incorrect][idx]}"
+                                f"\n{y_pred[mask][mask_incorrect][idx]}"
+                                f"\n{y_pred_mod[mask][mask_incorrect][idx]}"
+                                f"\n{true_out_mod[mask][mask_incorrect][idx]}\n"
+                            )
 
-                    #     n_sample = 2
-                    #     mask_incorrect = (
-                    #         y_pred_mod.view(y_pred_mod.size(0), -1)[~mask]
-                    #         == true_out_mod[~mask]
-                    #     ).all(1) == False
-                    #     N = y_pred_mod[~mask][mask_incorrect].size(0)
-                    #     if N < n_sample:
-                    #         n_sample = N
-                    #     idxs = torch.randperm(N)[:n_sample]
-                    #     # print y_pred_mod[idx]
-                    #     print(
-                    #         f"Flip q={configs["n"]} mod={target_step} #incorrect={N}:"
-                    #     )
-                    #     for idx in idxs:
-                    #         print(
-                    #             f"{targets[~mask][mask_incorrect][idx]}->{targets_mod[~mask][mask_incorrect][idx]}"
-                    #             f"\n{inputs[~mask][mask_incorrect][idx]}"
-                    #             f"\n{y_pred[~mask][mask_incorrect][idx]}"
-                    #             f"\n{y_pred_mod[~mask][mask_incorrect][idx]}"
-                    #             f"\n{true_out_mod[~mask][mask_incorrect][idx]}\n"
-                    #         )
+                        n_sample = 2
+                        mask_incorrect = (
+                            y_pred_mod[~mask] == y_pred[mask]  # true_out_mod[~mask]
+                        ).all(1) == False
+                        N = y_pred_mod[~mask][mask_incorrect].size(0)
+                        if N < n_sample:
+                            n_sample = N
+                        idxs = torch.randperm(N)[:n_sample]
+                        # print y_pred_mod[idx]
+                        print(
+                            f"Flip q={configs["n"]} mod={target_step} #incorrect={N}:"
+                        )
+                        for idx in idxs:
+                            print(
+                                f"{targets[~mask][mask_incorrect][idx]}->{targets_mod[~mask][mask_incorrect][idx]}"
+                                f"\n{inputs[~mask][mask_incorrect][idx]}"
+                                f"\n{y_pred[~mask][mask_incorrect][idx]}"
+                                f"\n{y_pred_mod[~mask][mask_incorrect][idx]}"
+                                f"\n{true_out_mod[~mask][mask_incorrect][idx]}\n"
+                            )
 
                     # save target, predictions, modified target, and modified predictions as numpy arrays
 
