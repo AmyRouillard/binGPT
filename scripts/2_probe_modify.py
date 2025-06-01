@@ -77,6 +77,27 @@ best_epoch = {
 
 # %%
 
+# create log.csv file
+log_file = os.path.join(model_dir, f"modified_model_log.csv")
+with open(log_file, "w", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerow(
+        [
+            "target_step",
+            "trained_model",
+            "gpt_load_epoch",
+            "probe_layer",
+            "load_epoch",
+            "set",  # train+validation, test,
+            "batch",
+            "accuracy",
+            "accuracy_0",
+            "accuracy_1",
+            "num_false",
+            "p_false",
+        ]
+    )
+
 
 for target_step in [
     # -8,
@@ -189,21 +210,6 @@ for target_step in [
             if not os.path.exists(out_dir):
                 os.makedirs(out_dir)
 
-            # create log.csv file
-            log_file = os.path.join(out_dir, "log.csv")
-            with open(log_file, "w", newline="") as f:
-                writer = csv.writer(f)
-                writer.writerow(
-                    [
-                        "set",  # train+validation, test,
-                        "batch",
-                        "accuracy",
-                        "accuracy_0",
-                        "accuracy_1",
-                        "num_false",
-                        "p_false",
-                    ]
-                )
             for loader_name, loader in zip(
                 ["train_val", "test"], [train_loader, test_loader]
             ):
@@ -324,6 +330,11 @@ for target_step in [
                         writer = csv.writer(f)
                         writer.writerow(
                             [
+                                target_step,
+                                True if w == "trained" else False,
+                                gpt_load_epoch if w == "trained" else -1,
+                                probe_layer,
+                                best_epoch[w][probe_layer],
                                 loader_name,
                                 i,
                                 acc,
