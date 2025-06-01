@@ -326,10 +326,7 @@ for target_step in [-8, -7, -6, -5, -4, -3, -2, -1, 1, 2, 3, 4, 5, 6, 7, 8]:
                     # print y_pred_mod[idx]
                     print(f"Sampled Predictions {target_step}:")
                     for idx in idxs:
-                        print(
-                            f"\n{inputs[idx].view(-1, inputs.size(-1))[idx]}"
-                            f"\n{y_pred_mod[idx].view(-1, true_out_mod.size(-1))[idx]}"
-                        )
+                        print(f"\n{inputs[idx]}" f"\n{y_pred_mod[idx]}")
 
                     # save target, predictions, modified target, and modified predictions as numpy arrays
 
