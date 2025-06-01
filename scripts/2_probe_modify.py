@@ -345,7 +345,7 @@ for target_step in [
                             ]
                         )
                     if w == "trained":
-                        n_sample = 2
+                        n_sample = 1
                         mask_incorrect = (
                             y_pred_mod.view(y_pred_mod.size(0), -1)[mask]
                             == true_out_mod[mask]
@@ -429,8 +429,6 @@ for target_step in [
                     #     os.path.join(out_dir, f"batch_{i}_intermediated_mod.npy"),
                     #     x_tmp.view(x.size(0), *x.size()[1:]).cpu().detach().numpy(),
                     # )
-
-                    break
 
 
 # %%
