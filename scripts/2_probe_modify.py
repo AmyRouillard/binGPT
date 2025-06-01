@@ -326,10 +326,10 @@ for target_step in [
                         (y_pred_mod[~mask] == y_pred[~mask]).all(1).cpu().sum().item()
                     )
                     print(
-                        f"Changed: {targets.size(0)-N_unchanged0}/{targets.size(0)} ({(targets.size(0)-N_unchanged0)/targets.size(0):.4f})"
+                        f"Changed: {targets.size(0)-N_unchanged0}/{mask.sum().item()} ({(targets.size(0)-N_unchanged0)/mask.sum().item():.4f})"
                     )
                     print(
-                        f"Changed: {targets.size(0)-N_unchanged1}/{targets.size(0)} ({(targets.size(0)-N_unchanged1)/targets.size(0):.4f})"
+                        f"Changed: {targets.size(0)-N_unchanged1}/{(~mask).sum().item()} ({(targets.size(0)-N_unchanged1)/(~mask).sum().item():.4f})"
                     )
 
                     # write to log.csv
