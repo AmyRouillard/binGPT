@@ -260,7 +260,7 @@ for target_step in [-8, -7, -6, -5, -4, -3, -2, -1, 1, 2, 3, 4, 5, 6, 7, 8]:
                     ).cpu().sum().item() / targets.size(0)
 
                     # find indices where inputs[:,configs["n"]]==0
-                    mask = inputs[:, configs["n"]] == 0
+                    mask = inputs[:, configs["n"] - 1] == 0
                     acc_0 = (
                         y_pred_mod.view(y_pred_mod.size(0), -1)[mask]
                         == true_out_mod[mask]
