@@ -354,9 +354,9 @@ for target_step in [
 
                     if w == "trained":
                         n_sample = 1
-                        mask_incorrect = (
-                            y_pred_mod[mask] == y_pred[mask]  # true_out_mod[mask]
-                        ).all(1) == False
+                        mask_incorrect = (y_pred_mod[mask] == true_out_mod[mask]).all(
+                            1
+                        ) == False
                         N = y_pred_mod[mask][mask_incorrect].size(0)
                         if N < n_sample:
                             n_sample = N
@@ -375,9 +375,9 @@ for target_step in [
                             )
 
                         n_sample = 2
-                        mask_incorrect = (
-                            y_pred_mod[~mask] == y_pred[~mask]  # true_out_mod[~mask]
-                        ).all(1) == False
+                        mask_incorrect = (y_pred_mod[~mask] == true_out_mod[~mask]).all(
+                            1
+                        ) == False
                         N = y_pred_mod[~mask][mask_incorrect].size(0)
                         if N < n_sample:
                             n_sample = N
