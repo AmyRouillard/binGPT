@@ -322,11 +322,14 @@ for target_step in [-8, -7, -6, -5, -4, -3, -2, -1, 1, 2, 3, 4, 5, 6, 7, 8]:
                         y_pred_mod.view(y_pred_mod.size(0), -1)[mask]
                         != true_out_mod[mask]
                     )
-                    N = y_pred_mod[mask][mask_incorrect].size(0)
+                    N = y_pred_mod.view(y_pred_mod.size(0), -1)[mask][
+                        mask_incorrect
+                    ].size(0)
                     if N < n_sample:
                         n_sample = N
                     idxs = torch.randperm(N)[:n_sample]
-
+                    print(idxs, inputs.shape, y_pred.shape, y_pred_mod.shape)
+                    print(mask.shape, mask_incorrect.shape)
                     # print y_pred_mod[idx]
                     print(f"Sampled Predictions {configs["n"]} {target_step}:")
                     for idx in idxs:
@@ -376,6 +379,8 @@ for target_step in [-8, -7, -6, -5, -4, -3, -2, -1, 1, 2, 3, 4, 5, 6, 7, 8]:
                     #     os.path.join(out_dir, f"batch_{i}_intermediated_mod.npy"),
                     #     x_tmp.view(x.size(0), *x.size()[1:]).cpu().detach().numpy(),
                     # )
+
+                    break
 
 
 # %%
