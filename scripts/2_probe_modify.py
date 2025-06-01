@@ -348,11 +348,11 @@ for target_step in [
                     print(f"No flip q={configs["n"]} mod={target_step} #incorrect={N}:")
                     for idx in idxs:
                         print(
-                            f"\n{targets[mask][mask_incorrect][idx]}->{targets_mod[mask][mask_incorrect][idx]}"
+                            f"{targets[mask][mask_incorrect][idx]}->{targets_mod[mask][mask_incorrect][idx]}"
                             f"\n{inputs[mask][mask_incorrect][idx]}"
                             f"\n{y_pred[mask][mask_incorrect][idx]}"
                             f"\n{y_pred_mod[mask][mask_incorrect][idx]}"
-                            f"\n{true_out_mod[mask][mask_incorrect][idx]}"
+                            f"\n{true_out_mod[mask][mask_incorrect][idx]}\n"
                         )
 
                     mask_incorrect = (
@@ -367,11 +367,11 @@ for target_step in [
                     print(f"Flip q={configs["n"]} mod={target_step} #incorrect={N}:")
                     for idx in idxs:
                         print(
-                            f"\n{targets[~mask][mask_incorrect][idx]}->{targets_mod[~mask][mask_incorrect][idx]}"
+                            f"{targets[~mask][mask_incorrect][idx]}->{targets_mod[~mask][mask_incorrect][idx]}"
                             f"\n{inputs[~mask][mask_incorrect][idx]}"
                             f"\n{y_pred[~mask][mask_incorrect][idx]}"
                             f"\n{y_pred_mod[~mask][mask_incorrect][idx]}"
-                            f"\n{true_out_mod[~mask][mask_incorrect][idx]}"
+                            f"\n{true_out_mod[~mask][mask_incorrect][idx]}\n"
                         )
 
                     # save target, predictions, modified target, and modified predictions as numpy arrays
