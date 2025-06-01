@@ -278,7 +278,6 @@ for target_step in [
                     probs_mod = F.softmax(logits, dim=-1)
                     y_pred_mod = torch.argmax(probs_mod, dim=-1)
 
-                    print(y_pred_mod.shape, true_out_mod.shape)
                     acc = (y_pred_mod == true_out_mod).all(
                         1
                     ).cpu().sum().item() / targets.size(0)
@@ -313,11 +312,7 @@ for target_step in [
                     # print(f"Batch {i}: 20: {acc:.4f}")
 
                     # find the number of indices where y_pred_mod.view(y_pred_mod.size(0), -1) == true_out_mod is false
-                    num_false = (
-                        (y_pred_mod.view(y_pred_mod.size(0), -1) != true_out_mod)
-                        .sum()
-                        .item()
-                    )
+                    num_false = (y_pred_mod != true_out_mod).sum().item()
                     p_false = num_false / targets.size(0) / true_out_mod.size(-1)
 
                     print(
