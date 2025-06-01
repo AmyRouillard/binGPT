@@ -326,21 +326,18 @@ for target_step in [-8, -7, -6, -5, -4, -3, -2, -1, 1, 2, 3, 4, 5, 6, 7, 8]:
                     if N < n_sample:
                         n_sample = N
                     idxs = torch.randperm(N)[:n_sample]
-                    print(
-                        N,
-                        idxs,
-                        inputs[mask][mask_incorrect].shape,
-                        y_pred[mask][mask_incorrect].shape,
-                        y_pred_mod[mask][mask_incorrect].shape,
-                    )
+
                     print(mask.shape, mask_incorrect.shape)
                     # print y_pred_mod[idx]
-                    print(f"Sampled Predictions {configs["n"]} {target_step}:")
+                    print(
+                        f"Sampled Predictions q={configs["n"]} mod={target_step} #incorrect={N}:"
+                    )
                     for idx in idxs:
                         print(
                             f"\n{inputs[mask][mask_incorrect][idx]}"
                             f"\n{y_pred[mask][mask_incorrect][idx]}"
                             f"\n{y_pred_mod[mask][mask_incorrect][idx]}"
+                            f"\n{true_out_mod[mask][mask_incorrect][idx]}"
                         )
 
                     # save target, predictions, modified target, and modified predictions as numpy arrays
