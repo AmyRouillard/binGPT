@@ -202,11 +202,7 @@ class EncoderOnlyTransformer(nn.Module):
                 )
 
         # report number of parameters
-        n_params_transformer = sum(p.numel() for p in self.transformer.parameters())
-        n_params_head = sum(p.numel() for p in self.lm_head.parameters())
-        total_params = n_params_transformer + n_params_head
-        print(f"number of transformer parameters: {n_params_transformer:.3e}")
-        print(f"number of prediction head parameters: {n_params_head:.3e}")
+        total_params = sum([p.numel() for _, p in self.named_parameters()])
         print(f"total number of parameters: {total_params:.3e}")
 
     def _init_weights(self, module):

@@ -141,7 +141,7 @@ class Trainer:
             f"best_val={self.best_metric_val:.2e}, "
             f"patience={self.config.early_stopping_patience}, "
             f"patience_counter={self.patience_counter}, "
-            f"stop_flag={self.stop_training_flag}"
+            f"stop_flag={self.stop_training_flag}, "
             f"val_acc={val_metrics.get('val_accuracy', 'N/A'):.6f}"
         )
 

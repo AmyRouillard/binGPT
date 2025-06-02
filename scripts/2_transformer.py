@@ -11,6 +11,7 @@ from mingpt.trainer import Trainer
 import torch
 import csv
 
+
 # %%
 
 
@@ -28,10 +29,10 @@ if os.path.exists(os.path.join(model_dir, "config.json")):
 else:
 
     configs = {
-        # "data_type": "binary",
-        "data_type": "decimal",
+        "data_type": "binary",
+        # "data_type": "decimal",
         "n": 3,
-        "length": 23,
+        "length": 18,
     }
 
     n = 4
@@ -87,8 +88,8 @@ else:
     # create model_config_dict
     model_config_dict = {
         "n_layer": 2,
-        "n_head": 2,
-        "n_embd": 2**4 * 2,
+        "n_head": 4,
+        "n_embd": 2 * 4,
         "model_type": None,
         "vocab_size": train_dataset.get_vocab_size(),
         "block_size": train_dataset.get_block_size(),

@@ -59,13 +59,51 @@ model_config = CN(**model_config_dict)
 model = EncoderOnlyTransformer(model_config)
 model.eval()
 # %%
+for k in model_config_dict.keys():
+    print(f"{k}: {model_config_dict[k]}")
+# %%
+import matplotlib.pyplot as plt
 
+n_figs = 1 + model_config_dict["n_layer"] * 6 + 2
+fig, ax = plt.subplots(n_figs, 2, figsize=(10, 2 * n_figs), squeeze=False)
+i = 1
 for name, param in model.named_parameters():
 
-    print(name, param.shape)
-    if "weight" in name:
-        print("Weight mean:", param.mean().item())
-        print("Weight std:", param.std().item())
+    print(name, param.numel())
+    if "wte.weight" in name:
+        ax[0, 0].imshow(param.detach().cpu().numpy(), aspect="auto")
+        ax[0, 0].set_title(
+            f"wte.weight {param.shape}\n {param.detach().cpu().numpy().min():.2e} {param.detach().cpu().numpy().max():.2e}"
+        )
+    elif "wpe.weight" in name:
+        ax[0, 1].imshow(param.detach().cpu().numpy(), aspect="auto")
+        ax[0, 1].set_title(
+            f"wpe.weight {param.shape}\n {param.detach().cpu().numpy().min():.2e} {param.detach().cpu().numpy().max():.2e}"
+        )
+    elif "weight" in name:
+        tmp = param.detach().cpu().numpy()
+        if len(tmp.shape) == 1:
+            tmp = tmp.reshape(1, -1)
+        ax[i, 0].imshow(tmp, aspect="auto")
+        ax[i, 0].set_title(
+            f"{name} {param.shape}\n {param.detach().cpu().numpy().min():.2e} {param.detach().cpu().numpy().max():.2e}"
+        )
     elif "bias" in name:
-        print("Bias mean:", param.mean().item())
-        print("Bias std:", param.std().item())
+        ax[i, 1].imshow(param.detach().cpu().numpy()[None, :], aspect="auto")
+        ax[i, 1].set_title(
+            f"{name} {param.shape}\n {param.detach().cpu().numpy().min():.2e} {param.detach().cpu().numpy().max():.2e}"
+        )
+        i += 1
+
+for i in range(n_figs):
+    ax[i, 0].set_xticks([])
+    ax[i, 1].set_xticks([])
+    ax[i, 0].set_yticks([])
+    ax[i, 1].set_yticks([])
+
+fig.tight_layout()
+
+plt.show()
+
+
+# %%
