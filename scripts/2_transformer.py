@@ -137,7 +137,7 @@ else:
 
     train_config = Trainer.get_default_config()
     train_config.learning_rate = 3e-4
-    train_config.batch_size = 2**14  # 2**15
+    train_config.batch_size = 2**13  # 2**15
     train_config.max_iters = (
         len(train_dataset) / train_config.batch_size
     ) * 500  # 6000
