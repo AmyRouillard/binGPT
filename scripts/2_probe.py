@@ -99,7 +99,7 @@ train_loader = DataLoader(
     train_probe,
     sampler=torch.utils.data.RandomSampler(train_probe, replacement=False),
     shuffle=False,
-    pin_memory=True,
+    # pin_memory=True,
     batch_size=batch_size,
     num_workers=num_workers,
 )
@@ -107,7 +107,7 @@ train_loader = DataLoader(
 val_loader = DataLoader(
     val_probe,
     shuffle=False,  # No need to shuffle validation data
-    pin_memory=True,
+    # pin_memory=True,
     batch_size=batch_size,
     num_workers=num_workers,
 )

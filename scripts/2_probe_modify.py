@@ -146,7 +146,7 @@ for target_step in [
     train_loader = DataLoader(
         train_probe + val_probe,
         shuffle=True,
-        pin_memory=True,
+        # pin_memory=True,
         batch_size=batch_size,
         num_workers=num_workers,
     )
@@ -154,7 +154,7 @@ for target_step in [
     test_loader = DataLoader(
         test_probe,
         shuffle=True,  # No need to shuffle validation data
-        pin_memory=True,
+        # pin_memory=True,
         batch_size=batch_size,
         num_workers=num_workers,
     )

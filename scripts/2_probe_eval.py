@@ -135,7 +135,7 @@ batch_size = 2**17
 train_loader = DataLoader(
     train_probe + val_probe,
     shuffle=False,
-    pin_memory=True,
+    # pin_memory=True,
     batch_size=batch_size,
     num_workers=num_workers,
 )
@@ -143,7 +143,7 @@ train_loader = DataLoader(
 test_loader = DataLoader(
     test_probe,
     shuffle=False,  # No need to shuffle validation data
-    pin_memory=True,
+    # pin_memory=True,
     batch_size=batch_size,
     num_workers=num_workers,
 )

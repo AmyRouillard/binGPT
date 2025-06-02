@@ -161,7 +161,7 @@ class Trainer:
                 self.train_dataset, replacement=False
             ),
             shuffle=False,
-            pin_memory=True,
+            # pin_memory=True,
             batch_size=config.batch_size,
             num_workers=config.num_workers,
         )
@@ -171,7 +171,7 @@ class Trainer:
             val_loader = DataLoader(
                 self.val_dataset,
                 shuffle=False,  # No need to shuffle validation data
-                pin_memory=True,
+                # pin_memory=True,
                 batch_size=config.val_batch_size,  # Use validation batch size
                 num_workers=config.num_workers,
             )

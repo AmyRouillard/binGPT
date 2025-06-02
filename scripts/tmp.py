@@ -69,7 +69,7 @@ train_loader = DataLoader(
     train_probe,
     sampler=torch.utils.data.RandomSampler(train_probe, replacement=False),
     shuffle=False,
-    pin_memory=True,
+    # pin_memory=True,
     batch_size=batch_size,
     num_workers=num_workers,
 )

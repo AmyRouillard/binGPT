@@ -88,7 +88,7 @@ model.to(device)  # Move model to the appropriate device
 train_loader = DataLoader(
     train_dataset + validation_dataset,
     shuffle=True,
-    pin_memory=True,
+    # pin_memory=True,
     batch_size=batch_size,
     num_workers=num_workers,
 )
@@ -96,7 +96,7 @@ train_loader = DataLoader(
 test_loader = DataLoader(
     test_dataset,
     shuffle=True,
-    pin_memory=True,
+    # pin_memory=True,
     batch_size=batch_size,
     num_workers=num_workers,
 )
