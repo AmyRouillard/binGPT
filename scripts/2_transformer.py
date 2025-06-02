@@ -28,8 +28,8 @@ if os.path.exists(os.path.join(model_dir, "config.json")):
 else:
 
     configs = {
-        "data_type": "binary",
-        # "data_type":"decimal"
+        # "data_type": "binary",
+        "data_type": "decimal",
         "n": 3,
         "length": 23,
     }

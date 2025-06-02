@@ -192,7 +192,7 @@ class TentDataset(Dataset):
         )
 
     def get_block_size(self):
-        return self._length
+        return self.length
 
     def __getitem__(self, idx):
 
