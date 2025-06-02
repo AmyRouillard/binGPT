@@ -22,7 +22,7 @@ import numpy as np
 
 wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/" #"/mnt/lustre/users/arouillard/project-files/"  #
 model_dir = wdir + f"models/2025_05_29_09_29/"
-gpt_load_epoch = 50
+transformer_load_epoch = 50
 num_workers = 8
 
 

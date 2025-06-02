@@ -8,12 +8,32 @@ import json
 import torch
 from torch.utils.data import DataLoader
 import numpy as np
+import argparse
 
 # %%
 
-wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/" #"/mnt/lustre/users/arouillard/project-files/"  #
-model_dir = wdir + f"models/2025_05_29_09_29/"
-gpt_load_epoch = 50
+parser = argparse.ArgumentParser(description="This is a demo script.")
+parser.add_argument(
+    "--model_dir",
+    type=str,
+    default="/home/amyrouillard/project-files/models/2025_05_29_09_29/",
+    help="Directory where the model is stored.",
+)
+
+parser.add_argument(
+    "--transformer_load_epoch",
+    type=int,
+    default=50,
+    help="Epoch number to load the model from.",
+)
+
+args = parser.parse_args()
+model_dir = args.model_dir
+transformer_load_epoch = args.transformer_load_epoch
+
+# wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/" #"/mnt/lustre/users/arouillard/project-files/"  #
+# model_dir = wdir + f"models/2025_05_29_09_29/"
+# transformer_load_epoch = 50
 num_workers = 8
 
 # model_dir = wdir + "models/binary_2025_04_23_13_02"
@@ -69,7 +89,7 @@ print(f"Number of validation samples: {len(validation_dataset):.3e}")
 # %%
 
 # Load the model state dict
-model_path = os.path.join(model_dir, f"model_{gpt_load_epoch}.pt")
+model_path = os.path.join(model_dir, f"model_{transformer_load_epoch}.pt")
 if os.path.exists(model_path):
     print(f"Loading model from {model_path}")
     model.load_state_dict(torch.load(model_path))
@@ -144,7 +164,7 @@ def evaluate_model(model, data_loader, save_path=None):
 
 print("Evaluating model...")
 
-eval_dir = model_dir + f"eval_{gpt_load_epoch}/"
+eval_dir = model_dir + f"eval_{transformer_load_epoch}/"
 # Evaluate on training + validation dataset
 if not os.path.exists(eval_dir + "train_val/"):
     os.makedirs(eval_dir + "train_val/")

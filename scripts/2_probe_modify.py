@@ -23,7 +23,7 @@ import numpy as np
 
 wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/" #"/mnt/lustre/users/arouillard/project-files/"  #
 model_dir = wdir + f"models/2025_05_29_09_29/"
-gpt_load_epoch = 50
+transformer_load_epoch = 50
 num_workers = 8
 
 
@@ -85,7 +85,7 @@ with open(log_file, "w", newline="") as f:
         [
             "target_step",
             "trained_model",
-            "gpt_load_epoch",
+            "transformer_load_epoch",
             "probe_layer",
             "load_epoch",
             "set",  # train+validation, test,
@@ -174,7 +174,9 @@ for target_step in [
                 )
             else:
                 model.load_state_dict(
-                    torch.load(os.path.join(model_dir, f"model_{gpt_load_epoch}.pt"))
+                    torch.load(
+                        os.path.join(model_dir, f"model_{transformer_load_epoch}.pt")
+                    )
                 )
             model.to(device)
             model.eval()
@@ -190,7 +192,7 @@ for target_step in [
 
             probe_path = os.path.join(
                 model_dir,
-                f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}/epoch_{best_epoch[w][probe_layer]}.pt",
+                f"model_{transformer_load_epoch}_probe_{w}_{probe_layer}/epoch_{best_epoch[w][probe_layer]}.pt",
             )
             if os.path.exists(probe_path):
                 # print(f"Loading probe from {probe_path}")
@@ -205,7 +207,7 @@ for target_step in [
 
             out_dir = (
                 model_dir
-                + f"modified_model_{gpt_load_epoch}_probe_{w}_{probe_layer}_{best_epoch[w][probe_layer]}/step_{int(target_step)}/"
+                + f"modified_model_{transformer_load_epoch}_probe_{w}_{probe_layer}_{best_epoch[w][probe_layer]}/step_{int(target_step)}/"
             )
             if not os.path.exists(out_dir):
                 os.makedirs(out_dir)
@@ -339,7 +341,7 @@ for target_step in [
                             [
                                 target_step,
                                 True if w == "trained" else False,
-                                gpt_load_epoch if w == "trained" else -1,
+                                transformer_load_epoch if w == "trained" else -1,
                                 probe_layer,
                                 best_epoch[w][probe_layer],
                                 loader_name,

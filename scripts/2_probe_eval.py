@@ -22,7 +22,7 @@ import numpy as np
 
 wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/" #"/mnt/lustre/users/arouillard/project-files/"  #
 model_dir = wdir + f"models/2025_05_29_09_29/"
-gpt_load_epoch = 50
+transformer_load_epoch = 50
 num_workers = 8
 
 
@@ -173,7 +173,9 @@ for probe_layer in range(model_config.n_layer + 1):
             model.load_state_dict(torch.load(os.path.join(model_dir, f"model_-1.pt")))
         else:
             model.load_state_dict(
-                torch.load(os.path.join(model_dir, f"model_{gpt_load_epoch}.pt"))
+                torch.load(
+                    os.path.join(model_dir, f"model_{transformer_load_epoch}.pt")
+                )
             )
         model.eval()
 
@@ -188,7 +190,7 @@ for probe_layer in range(model_config.n_layer + 1):
 
         probe_path = os.path.join(
             model_dir,
-            f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}/epoch_{best_epoch[w][probe_layer]}.pt",
+            f"model_{transformer_load_epoch}_probe_{w}_{probe_layer}/epoch_{best_epoch[w][probe_layer]}.pt",
         )
         if os.path.exists(probe_path):
             print(f"Loading probe from {probe_path}")
@@ -205,7 +207,7 @@ for probe_layer in range(model_config.n_layer + 1):
 
         eval_dir = (
             model_dir
-            + f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}/epoch_{best_epoch[w][probe_layer]}_"
+            + f"model_{transformer_load_epoch}_probe_{w}_{probe_layer}/epoch_{best_epoch[w][probe_layer]}_"
         )
 
         # Evaluate the probe on the test set

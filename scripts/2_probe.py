@@ -20,12 +20,12 @@ import csv
 
 wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/" #"/mnt/lustre/users/arouillard/project-files/"  #
 model_dir = wdir + f"models/2025_05_29_09_29/"
-gpt_load_epoch = 50
+transformer_load_epoch = 50
 num_workers = 8
 
 # wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/" #"/mnt/lustre/users/arouillard/project-files/"  #
 # model_dir = wdir + f"models/2025_05_27_13_41/"
-# gpt_load_epoch = -1
+# transformer_load_epoch = -1
 
 if os.path.exists(os.path.join(model_dir, "config.json")):
     # read json file
@@ -120,24 +120,26 @@ for probe_layer in range(model_config.n_layer + 1):
     for w in ["random", "trained"]:
 
         if not os.path.exists(
-            os.path.join(model_dir, f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}")
+            os.path.join(
+                model_dir, f"model_{transformer_load_epoch}_probe_{w}_{probe_layer}"
+            )
         ):
             os.makedirs(
                 os.path.join(
-                    model_dir, f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}"
+                    model_dir, f"model_{transformer_load_epoch}_probe_{w}_{probe_layer}"
                 )
             )
 
         if not os.path.exists(
             os.path.join(
                 model_dir,
-                f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}/training_log.csv",
+                f"model_{transformer_load_epoch}_probe_{w}_{probe_layer}/training_log.csv",
             )
         ):
             with open(
                 os.path.join(
                     model_dir,
-                    f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}/training_log.csv",
+                    f"model_{transformer_load_epoch}_probe_{w}_{probe_layer}/training_log.csv",
                 ),
                 "w",
                 newline="",
@@ -164,7 +166,9 @@ for probe_layer in range(model_config.n_layer + 1):
             model.load_state_dict(torch.load(os.path.join(model_dir, f"model_-1.pt")))
         else:
             model.load_state_dict(
-                torch.load(os.path.join(model_dir, f"model_{gpt_load_epoch}.pt"))
+                torch.load(
+                    os.path.join(model_dir, f"model_{transformer_load_epoch}.pt")
+                )
             )
         model.eval()
 
@@ -252,7 +256,7 @@ for probe_layer in range(model_config.n_layer + 1):
                         probe.state_dict(),
                         os.path.join(
                             model_dir,
-                            f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}/epoch_{epoch_num}.pt",
+                            f"model_{transformer_load_epoch}_probe_{w}_{probe_layer}/epoch_{epoch_num}.pt",
                         ),
                     )
 
@@ -273,7 +277,7 @@ for probe_layer in range(model_config.n_layer + 1):
                 with open(
                     os.path.join(
                         model_dir,
-                        f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}/training_log.csv",
+                        f"model_{transformer_load_epoch}_probe_{w}_{probe_layer}/training_log.csv",
                     ),
                     "a",
                     newline="",
@@ -320,7 +324,7 @@ for probe_layer in range(model_config.n_layer + 1):
                 with open(
                     os.path.join(
                         model_dir,
-                        f"model_{gpt_load_epoch}_probe_{w}_{probe_layer}/training_log.csv",
+                        f"model_{transformer_load_epoch}_probe_{w}_{probe_layer}/training_log.csv",
                     ),
                     "a",
                     newline="",
