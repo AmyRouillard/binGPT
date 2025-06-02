@@ -87,7 +87,7 @@ class Trainer:
                 logits, loss = self.model(x, y)  # Assuming model returns (logits, loss)
                 total_val_loss += loss.item() * x.size(0)  # Weighted by batch size
                 total_val_samples += x.size(0)
-                accuracy += (logits.argmax(dim=-1) == y).sum().item()
+                accuracy += (logits.argmax(dim=-1) == y).all(-1).sum().item()
                 # Example for accuracy:
                 # _, predicted = torch.max(logits, 1)
                 # correct_predictions += (predicted == y).sum().item()
