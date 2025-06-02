@@ -87,9 +87,9 @@ else:
 
     # create model_config_dict
     model_config_dict = {
-        "n_layer": 2,
-        "n_head": 4,
-        "n_embd": 2 * 4,
+        "n_layer": 8,
+        "n_head": 8,
+        "n_embd": 2 * 8,
         "model_type": None,
         "vocab_size": train_dataset.get_vocab_size(),
         "block_size": train_dataset.get_block_size(),
