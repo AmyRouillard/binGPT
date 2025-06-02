@@ -12,7 +12,9 @@ import argparse
 
 # %%
 
-parser = argparse.ArgumentParser(description="This is a demo script.")
+parser = argparse.ArgumentParser(
+    description="Evaluate a trained transformer model on the TentMap dataset."
+)
 parser.add_argument(
     "--model_dir",
     type=str,

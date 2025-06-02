@@ -15,12 +15,31 @@ from mingpt.utils import CfgNode as CN
 
 import torch
 import csv
+import argparse
 
 # %%
 
-wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/" #"/mnt/lustre/users/arouillard/project-files/"  #
-model_dir = wdir + f"models/2025_05_29_09_29/"
-transformer_load_epoch = 50
+parser = argparse.ArgumentParser(description="Train a probing model.")
+parser.add_argument(
+    "--model_dir",
+    type=str,
+    default="/home/amyrouillard/project-files/models/2025_05_29_09_29/",
+    help="Directory where the model is stored.",
+)
+
+parser.add_argument(
+    "--transformer_load_epoch",
+    type=int,
+    default=50,
+    help="Epoch number to load the model from.",
+)
+
+args = parser.parse_args()
+model_dir = args.model_dir
+transformer_load_epoch = args.transformer_load_epoch
+# wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/" #"/mnt/lustre/users/arouillard/project-files/"  #
+# model_dir = wdir + f"models/2025_05_29_09_29/"
+# transformer_load_epoch = 50
 num_workers = 8
 
 # wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/" #"/mnt/lustre/users/arouillard/project-files/"  #
