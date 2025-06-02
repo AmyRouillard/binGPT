@@ -87,8 +87,8 @@ else:
 
     # create model_config_dict
     model_config_dict = {
-        "n_layer": 8,
-        "n_head": 8,
+        "n_layer": 4,
+        "n_head": 4,
         "n_embd": 2 * 8,
         "model_type": None,
         "vocab_size": train_dataset.get_vocab_size(),
@@ -137,7 +137,7 @@ if os.path.exists(os.path.join(model_dir, "trainer_config.json")):
 else:
 
     train_config = Trainer.get_default_config()
-    train_config.learning_rate = 1e-2
+    train_config.learning_rate = 3e-2
     train_config.batch_size = 2**13  # 2**15
     train_config.val_batch_size = 2**13  # 2**15
     train_config.max_iters = (
