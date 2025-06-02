@@ -31,7 +31,7 @@ else:
     configs = {
         "data_type": "binary",
         # "data_type": "decimal",
-        "n": 6,
+        "n": 10,
         "length": 18,
     }
 
@@ -89,7 +89,7 @@ else:
     model_config_dict = {
         "n_layer": 2,
         "n_head": 2,
-        "n_embd": 2 * 6,
+        "n_embd": 2 * 4,
         "model_type": None,
         "vocab_size": train_dataset.get_vocab_size(),
         "block_size": train_dataset.get_block_size(),
