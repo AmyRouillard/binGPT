@@ -17,14 +17,60 @@ from mingpt.utils import CfgNode as CN
 import torch
 import csv
 import numpy as np
+import argparse
 
 # %%
 
-wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/" #"/mnt/lustre/users/arouillard/project-files/"  #
-model_dir = wdir + f"models/2025_05_29_09_29/"
-transformer_load_epoch = 50
+parser = argparse.ArgumentParser(description="Train a probing model.")
+parser.add_argument(
+    "--model_dir",
+    type=str,
+    default="/home/amyrouillard/project-files/models/2025_05_29_09_29/",
+    help="Directory where the model is stored.",
+)
+
+parser.add_argument(
+    "--transformer_load_epoch",
+    type=int,
+    default=50,
+    help="Epoch number to load the model from.",
+)
+
+parser.add_argument(
+    "--probe_load_epoch",
+    type=str,
+    default="0 1 2 0 1 2",
+    help="Epoch number to load the model from.",
+)
+
+args = parser.parse_args()
+model_dir = args.model_dir
+transformer_load_epoch = args.transformer_load_epoch
+probe_load_epoch = [int(x) for x in args.probe_load_epoch.split()]
+L = len(probe_load_epoch) // 2
+
+best_epoch = {
+    "random": dict(zip(range(L), probe_load_epoch[:L])),
+    "trained": dict(zip(range(L), probe_load_epoch[L:])),
+}
+
+# wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/" #"/mnt/lustre/users/arouillard/project-files/"  #
+# model_dir = wdir + f"models/2025_05_29_09_29/"
+# transformer_load_epoch = 50
 num_workers = 8
 
+# best_epoch = {
+#     "random": {
+#         0: 137,
+#         1: 131,
+#         2: 130,
+#     },
+#     "trained": {
+#         0: 101,
+#         1: 51,
+#         2: 33,
+#     },
+# }
 
 if os.path.exists(os.path.join(model_dir, "config.json")):
     # read json file
@@ -148,18 +194,6 @@ test_loader = DataLoader(
     num_workers=num_workers,
 )
 
-best_epoch = {
-    "random": {
-        0: 137,
-        1: 131,
-        2: 130,
-    },
-    "trained": {
-        0: 101,
-        1: 51,
-        2: 33,
-    },
-}
 
 for probe_layer in range(model_config.n_layer + 1):
     for w in ["random", "trained"]:
@@ -205,16 +239,16 @@ for probe_layer in range(model_config.n_layer + 1):
         probe.eval()
         model.eval()
 
-        eval_dir = (
-            model_dir
-            + f"model_{transformer_load_epoch}_probe_{w}_{probe_layer}/epoch_{best_epoch[w][probe_layer]}_"
+        eval_dir = os.path.join(
+            model_dir,
+            f"model_{transformer_load_epoch}_probe_{w}_{probe_layer}/epoch_{best_epoch[w][probe_layer]}/",
         )
 
         # Evaluate the probe on the test set
-        if not os.path.exists(eval_dir + "test/"):
-            os.makedirs(eval_dir + "test/")
+        if not os.path.exists(os.path.join(eval_dir, "test/")):
+            os.makedirs(os.path.join(eval_dir, "test/"))
         test_accuracy = evaluate_probe(
-            model, probe, test_loader, device, eval_dir + "test/"
+            model, probe, test_loader, device, os.path.join(eval_dir, "test/")
         )
         print(f"Test accuracy for {w} probe layer {probe_layer}: {test_accuracy:.4f}")
         # Evaluate the probe on the training set
@@ -222,7 +256,7 @@ for probe_layer in range(model_config.n_layer + 1):
         if not os.path.exists(eval_dir + "train_val/"):
             os.makedirs(eval_dir + "train_val/")
         train_accuracy = evaluate_probe(
-            model, probe, train_loader, device, eval_dir + "train_val/"
+            model, probe, train_loader, device, os.path.join(eval_dir, "train_val/")
         )
         print(f"Train accuracy for {w} probe layer {probe_layer}: {train_accuracy:.4f}")
 
@@ -230,7 +264,7 @@ for probe_layer in range(model_config.n_layer + 1):
             "test_accuracy": test_accuracy,
             "train_accuracy": train_accuracy,
         }
-        with open(eval_dir + "results.json", "w") as f:
+        with open(os.path.join(eval_dir, "results.json"), "w") as f:
             json.dump(results, f, indent=4)
 
 

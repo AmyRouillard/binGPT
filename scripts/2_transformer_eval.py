@@ -166,19 +166,21 @@ def evaluate_model(model, data_loader, save_path=None):
 
 print("Evaluating model...")
 
-eval_dir = model_dir + f"eval_{transformer_load_epoch}/"
+eval_dir = os.path.join(model_dir, f"eval_{transformer_load_epoch}/")
 # Evaluate on training + validation dataset
-if not os.path.exists(eval_dir + "train_val/"):
-    os.makedirs(eval_dir + "train_val/")
+if not os.path.exists(os.path.join(eval_dir, "train_val/")):
+    os.makedirs(os.path.join(eval_dir, "train_val/"))
 train_val_accuracy = evaluate_model(
-    model, train_loader, save_path=eval_dir + "train_val/"
+    model, train_loader, save_path=os.path.join(eval_dir, "train_val/")
 )
 print(f"Train + Validation Accuracy: {train_val_accuracy:.4f}")
 # Evaluate on test dataset
 
 if not os.path.exists(eval_dir + "test/"):
     os.makedirs(eval_dir + "test/")
-test_accuracy = evaluate_model(model, test_loader, save_path=eval_dir + "test/")
+test_accuracy = evaluate_model(
+    model, test_loader, save_path=os.path.join(eval_dir, "test/")
+)
 print(f"Test Accuracy: {test_accuracy:.4f}")
 
 
