@@ -46,7 +46,7 @@ parser.add_argument(
 args = parser.parse_args()
 model_dir = args.model_dir
 transformer_load_epoch = args.transformer_load_epoch
-probe_load_epoch = [int(x) for x in args.probe_load_epoch.split().strip("'")]
+probe_load_epoch = [int(x.strip("'")) for x in args.probe_load_epoch.split()]
 L = len(probe_load_epoch) // 2
 
 best_epoch = {
