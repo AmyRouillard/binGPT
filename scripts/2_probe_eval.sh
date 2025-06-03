@@ -14,13 +14,13 @@ JOBS=(
 )
 
 # Path to your Python script
-SCRIPT="/home/amyrouillard/project-files/binGPT/scripts/2_probe.py"  # change this if neede
+SCRIPT="/home/amyrouillard/project-files/binGPT/scripts/2_probe_eval.py"  # change this if neede
 
 # Loop through jobs and run each
 for job in "${JOBS[@]}"; do
   read SUBDIR EPOCH PROBE<<< "$job"
   MODEL_DIR="${BASE_MODEL_DIR}/${SUBDIR}"
 
-  echo "Running: python $SCRIPT --model_dir $MODEL_DIR --transformer_load_epoch $EPOCH"
+  echo "Running: python $SCRIPT --model_dir $MODEL_DIR --transformer_load_epoch $EPOCH" 
   python "$SCRIPT" --model_dir "$MODEL_DIR" --transformer_load_epoch "$EPOCH" --probe_load_epoch "$PROBE"
 done
