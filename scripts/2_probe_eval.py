@@ -241,7 +241,7 @@ for probe_layer in range(model_config.n_layer + 1):
 
         eval_dir = os.path.join(
             model_dir,
-            f"model_{transformer_load_epoch}_probe_{w}_{probe_layer}/epoch_{best_epoch[w][probe_layer]}/",
+            f"model_{transformer_load_epoch}_probe_{w}_{probe_layer}/eval_{best_epoch[w][probe_layer]}/",
         )
 
         # Evaluate the probe on the test set

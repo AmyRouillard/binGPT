@@ -21,8 +21,12 @@ import numpy as np
 # %%
 
 wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/" #"/mnt/lustre/users/arouillard/project-files/"  #
-model_dir = wdir + f"models/2025_05_29_09_29/"
-transformer_load_epoch = 50
+# model_dir = wdir + f"models/2025_06_02_14_44"  # 2025_05_29_09_29
+# transformer_load_epoch = 55
+# model_dir = wdir + f"models/2025_06_02_15_24"
+# transformer_load_epoch = 83
+model_dir = wdir + f"models/2025_06_02_15_40"
+transformer_load_epoch = 81
 num_workers = 8
 
 
@@ -71,12 +75,18 @@ for name, param in model.named_parameters():
 
     print(name, param.numel())
     if "wte.weight" in name:
-        ax[0, 0].imshow(param.detach().cpu().numpy(), aspect="auto")
+        ax[0, 0].imshow(
+            param.detach().cpu().numpy(),
+            aspect="auto",
+        )
         ax[0, 0].set_title(
             f"wte.weight {param.shape}\n {param.detach().cpu().numpy().min():.2e} {param.detach().cpu().numpy().max():.2e}"
         )
     elif "wpe.weight" in name:
-        ax[0, 1].imshow(param.detach().cpu().numpy(), aspect="auto")
+        ax[0, 1].imshow(
+            param.detach().cpu().numpy(),
+            aspect="auto",
+        )
         ax[0, 1].set_title(
             f"wpe.weight {param.shape}\n {param.detach().cpu().numpy().min():.2e} {param.detach().cpu().numpy().max():.2e}"
         )
@@ -89,7 +99,10 @@ for name, param in model.named_parameters():
             f"{name} {param.shape}\n {param.detach().cpu().numpy().min():.2e} {param.detach().cpu().numpy().max():.2e}"
         )
     elif "bias" in name:
-        ax[i, 1].imshow(param.detach().cpu().numpy()[None, :], aspect="auto")
+        ax[i, 1].imshow(
+            param.detach().cpu().numpy()[None, :],
+            aspect="auto",
+        )
         ax[i, 1].set_title(
             f"{name} {param.shape}\n {param.detach().cpu().numpy().min():.2e} {param.detach().cpu().numpy().max():.2e}"
         )
