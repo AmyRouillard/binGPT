@@ -25,6 +25,7 @@ import seaborn as sns
 # %%
 
 wdir = "/home/amyrouillard/project-files/"  # "C:/Users/Amy/Desktop/Green_Git/binGPT/" #"/mnt/lustre/users/arouillard/project-files/"  #
+# wdir = "D:/home/amyrouillard/project-files/"
 model_dir = wdir + f"models/2025_06_02_14_44"  # 2025_05_29_09_29
 transformer_load_epoch = 55
 # model_dir = wdir + f"models/2025_06_02_15_24"
@@ -72,7 +73,7 @@ model.eval()
 
 # %%
 
-show_all = False
+show_all = True
 
 
 # %%
@@ -126,8 +127,8 @@ targets = torch.tensor(
 
 # %%
 
-# print(f"idx: {idx} {idx.shape}")
-# print(f"targets: {targets} {targets.shape}")
+print(f"idx: {idx} {idx.shape}")
+print(f"targets: {targets} {targets.shape}")
 
 # %%
 
