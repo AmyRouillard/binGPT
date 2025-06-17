@@ -24,11 +24,11 @@ class MLP(torch.nn.Module):
         for i in range(self.repeat):
             x = self.fc1(x)
             x = self.activation(x)
-            if i < self.repeat - 1:
-                x = self.activation(self.fc2(x))
-            else:
-                x = self.fc2(x)
-            # x = self.fc2(x)
+            # if i < self.repeat - 1:
+            #     x = self.activation(self.fc2(x))
+            # else:
+            #     x = self.fc2(x)
+            x = self.fc2(x)
 
         return x
 
@@ -122,7 +122,9 @@ print("Model weights:")
 for name, param in model.named_parameters():
     print(name, param.data)
 
+
 criterion = torch.nn.MSELoss()
+
 fig, ax = plt.subplots(1, 1, figsize=(10, 5))
 for i, (x, y) in enumerate(loader):
 
@@ -181,9 +183,9 @@ while current_best_loss > 1e-1:
     #     param.requires_grad = False
 
     model.fc1.weight.data = torch.randn(2, 1)  # torch.tensor([[1.0], [-1.0]])  #
-    model.fc1.weight.data = torch.clamp(model.fc1.weight.data, -1.0, 1.0)
+    # model.fc1.weight.data = torch.clamp(model.fc1.weight.data, 0.0, 1.0)
     model.fc1.bias.data = torch.randn(2)  # torch.tensor([-0.5, 0.5]) #
-    model.fc1.bias.data = torch.clamp(model.fc1.bias.data, -0.5, 0.5)
+    # model.fc1.bias.data = torch.clamp(model.fc1.bias.data, -1.0, 0.0)
     model.fc2.weight.data = torch.randn(1, 2)
     # model.fc2.weight.data = torch.tensor(
     #     [[2*model.fc1.weight.data[1, 0], -2*model.fc1.weight.data[0, 0]]]
@@ -219,8 +221,15 @@ while current_best_loss > 1e-1:
     #     print(name, param.data)
 
     criterion = torch.nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-
+    # with regularization
+    # optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=1e-4)
+    optimizer = torch.optim.SGD(
+        model.parameters(),
+        lr=0.001,
+        momentum=0.3,
+        weight_decay=1e-4,
+        # nesterov=True,
+    )
     # fig, ax = plt.subplots(1, 1, figsize=(10, 5))
     for epoch in range(500):
 
@@ -282,6 +291,7 @@ while current_best_loss > 1e-1:
 
     current_best_loss = loss.item()
     print("Current best loss:", current_best_loss)
+    break
 
 fig, ax = plt.subplots(1, 1, figsize=(6, 6))
 W_ = np.array(W)
@@ -489,7 +499,7 @@ for name, param in model.named_parameters():
 # for w00 in np.linspace(-2, 2, N):
 
 criterion = torch.nn.MSELoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=1e-4)
 
 
 t = time.time()
