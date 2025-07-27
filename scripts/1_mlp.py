@@ -17,8 +17,8 @@ class MLP(torch.nn.Module):
         self.fc1 = torch.nn.Linear(input_size, hidden_size)
         self.fc2 = torch.nn.Linear(hidden_size, output_size)
 
-        # self.activation = torch.nn.ReLU()
-        self.activation = torch.nn.PReLU(init=0.25)
+        self.activation = torch.nn.ReLU()
+        # self.activation = torch.nn.PReLU(init=0.25)
 
     def forward(self, x):
         for i in range(self.repeat):
@@ -56,7 +56,7 @@ data_type = "decimal"
 tokenized = False
 
 n = 1
-length = 6 + n
+length = 8 + n
 
 train_dataset = TentDataset(
     "train",
@@ -74,7 +74,7 @@ test_dataset = TentDataset(
 )
 
 # Small batch size or full batch size
-batch_size = min([2**10, train_dataset.__len__() + test_dataset.__len__()])
+batch_size = min([2**6, train_dataset.__len__() + test_dataset.__len__()])
 
 loader = DataLoader(
     train_dataset + test_dataset,
@@ -92,15 +92,15 @@ model = MLP(
     repeat=n,
 )
 
-# model.fc1.weight.data = torch.tensor([[1.0], [-1.0]])
-# model.fc1.bias.data = torch.tensor([0.0, 0.0])
-# model.fc2.weight.data = torch.tensor([[-2.0, -2.0]])
-# model.fc2.bias.data = torch.tensor([0.5])
-
 model.fc1.weight.data = torch.tensor([[1.0], [-1.0]])
 model.fc1.bias.data = torch.tensor([-0.5, 0.5])
-model.fc2.weight.data = torch.tensor([[-2.0 / (1 - 0.25), -2.0 / (1 - 0.25)]])
+model.fc2.weight.data = torch.tensor([[-2.0, -2.0]])
 model.fc2.bias.data = torch.tensor([1.0])
+
+# model.fc1.weight.data = torch.tensor([[1.0], [-1.0]])
+# model.fc1.bias.data = torch.tensor([-0.5, 0.5])
+# model.fc2.weight.data = torch.tensor([[-2.0 / (1 - 0.25), -2.0 / (1 - 0.25)]])
+# model.fc2.bias.data = torch.tensor([1.0])
 
 # fixed points
 x_fixed = torch.tensor([[0.0], [0.5], [1.0]])
@@ -165,10 +165,70 @@ for name, param in model.named_parameters():
 # %%
 
 
+w = np.linspace(-3, 3, 500)
+b = np.linspace(-3, 3, 500)
+# x = np.linspace(0, 1, 500)
+
+
+# check when w*x + b > 0
+def condition(w, x, b):
+    # return (w * x + b > 0 - 1e-5) & (w * x + b < 1 + 1e-5)
+    return w * x + b > 0
+
+
+W, B = np.meshgrid(w, b)
+
+mask = np.full_like(W, 0)
+for i, (x, y) in enumerate(loader):
+    x = x.numpy().flatten()
+    for x_val in x:
+        mask += condition(W, x_val, B)
+
+fig_cont, ax_cont = plt.subplots(2, 2, figsize=(10, 6))
+# plot heatmap of the mask
+for j in range(2):
+    for i in range(1):
+        c = ax_cont[i, j].pcolormesh(
+            W, B, mask / len(x), cmap="viridis", shading="auto"
+        )
+        # overlay contour lines
+        ax_cont[i, j].contour(
+            W,
+            B,
+            mask / len(x),
+            levels=[0.01, 0.3, 0.5, 0.7, 0.9],
+            colors="black",
+            linewidths=0.5,
+        )
+
+        ax_cont[i, j].plot(
+            np.linspace(-3, 3, 10),
+            -0.5 * np.linspace(-3, 3, 10),
+            "--r",
+        )
+        # axis equal
+        ax_cont[i, j].set_aspect("equal", adjustable="box")
+        # axis labels
+        ax_cont[i, j].set_xlabel("w")
+        ax_cont[i, j].set_ylabel("b")
+# colorbar
+# cbar = fig_cont.colorbar(c, ax=ax_cont[1])
+# for i in range(2):
+#     ax_cont[1, i].plot(
+#         np.linspace(0, 1000, 10),
+#         -np.ones_like(np.linspace(0, 1000, 10)),
+#         "--r",
+#     )
+
 labels = ["w0", "w1", "b0", "b1", "w'0", "w'1", "b'0"]
-c = ["k", "b", "r", "g", "c", "m", "y"]
+import matplotlib.colors as mcolors
+
+c = [v for v in mcolors.TABLEAU_COLORS.values()]
+# c = ["b", "g", "r", "c", "m", "y", "k"]
 current_best_loss = 1e9
-while current_best_loss > 1e-1:
+max_tries = 10
+tries = 0
+while current_best_loss > 1e-1 or tries < max_tries:
 
     model = MLP(
         input_size=1,
@@ -177,23 +237,28 @@ while current_best_loss > 1e-1:
         repeat=n,
     )
 
-    model.activation.weight.requires_grad = False
+    # model.activation.weight.requires_grad = False
 
     # for param in model.fc1.parameters():
     #     param.requires_grad = False
 
-    model.fc1.weight.data = torch.randn(2, 1)  # torch.tensor([[1.0], [-1.0]])  #
-    # model.fc1.weight.data = torch.clamp(model.fc1.weight.data, 0.0, 1.0)
-    model.fc1.bias.data = torch.randn(2)  # torch.tensor([-0.5, 0.5]) #
-    # model.fc1.bias.data = torch.clamp(model.fc1.bias.data, -1.0, 0.0)
-    model.fc2.weight.data = torch.randn(1, 2)
+    model.fc1.weight.data = torch.randn(2, 1)  # torch.tensor([[0.7], [-0.2]])  #
+    model.fc1.weight.data = torch.clamp(model.fc1.weight.data, -2.0, 2.0)
+
+    model.fc1.bias.data = torch.randn(2)  # torch.tensor([-0.2, 0.6])  #
+    model.fc1.bias.data = torch.clamp(model.fc1.bias.data, -2.0, 2.0)
+
+    # mask = np.full_like(W, 0)
+    # for x_val in x:
+    #     mask += condition(W, x_val, B)
+
+    model.fc2.weight.data = torch.randn(1, 2)  # torch.tensor([[-1.0, -1.0]])  #
     # model.fc2.weight.data = torch.tensor(
     #     [[2*model.fc1.weight.data[1, 0], -2*model.fc1.weight.data[0, 0]]]
     # )
     # model.fc2.weight.requires_grad = False
-    model.fc2.bias.data = torch.randn(1)
+    model.fc2.bias.data = torch.randn(1)  # torch.tensor([1.0]) #
     # restrict magnitude of fc1.bais to 0.5
-
     # for param in model.fc2.parameters():
     #     param.requires_grad = False
     # model.fc1.weight.data = torch.randn(2, 1)
@@ -222,44 +287,49 @@ while current_best_loss > 1e-1:
 
     criterion = torch.nn.MSELoss()
     # with regularization
-    # optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=1e-4)
-    optimizer = torch.optim.SGD(
+    optimizer = torch.optim.Adam(
         model.parameters(),
-        lr=0.001,
-        momentum=0.3,
-        weight_decay=1e-4,
-        # nesterov=True,
+        lr=0.01,
+        weight_decay=0,
     )
+    tries += 1
+
+    # optimizer = torch.optim.SGD(
+    #     model.parameters(),
+    #     lr=0.001,
+    #     momentum=0.3,
+    #     weight_decay=1e-4,
+    #     # nesterov=True,
+    # )
     # fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-    for epoch in range(500):
+    for epoch in range(1000):
 
         for i, (x, y) in enumerate(loader):
+            optimizer.zero_grad()
 
             # x = x - 0.5
             # y = y - 0.5
             # add noise to x and y
-            x = x + torch.randn_like(x) * 0.1
-            y = y + torch.randn_like(y) * 0.1
+            # x = x + torch.randn_like(x) * 0.1
+            # y = y + torch.randn_like(y) * 0.1
 
             # forward pass
             y_pred = model(x)
-
-            optimizer.zero_grad()
             loss = criterion(y_pred, y)
 
-            y_fixed_pred = model(x_fixed)
-            loss_f = criterion(y_fixed_pred, y_fixed)
-            loss += loss_f  # * (1 + torch.rand(1).item() * 0.5)
+            # y_fixed_pred = model(x_fixed)
+            # loss_f = criterion(y_fixed_pred, y_fixed)
+            # loss += loss_f  # * (1 + torch.rand(1).item() * 0.5)
 
-            y_sym = model(1 - x)
-            loss_sym = criterion(y_sym, y)
-            loss += loss_sym  # * (1 + torch.rand(1).item() * 0.5)
+            # y_sym = model(1 - x)
+            # loss_sym = criterion(y_sym, y)
+            # loss += loss_sym  # * (1 + torch.rand(1).item() * 0.5)
 
             loss.backward()
             # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
-            model.fc1.weight.data = torch.clamp(model.fc1.weight.data, -1.0, 1.0)
-            model.fc1.bias.data = torch.clamp(model.fc1.bias.data, -0.5, 0.5)
+            # model.fc1.weight.data = torch.clamp(model.fc1.weight.data, -1.0, 1.0)
+            # model.fc1.bias.data = torch.clamp(model.fc1.bias.data, -0.5, 0.5)
 
             # print gradients
             # for name, param in model.named_parameters():
@@ -291,8 +361,66 @@ while current_best_loss > 1e-1:
 
     current_best_loss = loss.item()
     print("Current best loss:", current_best_loss)
-    break
 
+    # ["w0", "w1", "b0", "b1", "w'0", "w'1", "b'0"]
+    # plot scatter plot of weights and gradients
+    W_ = np.array(W)
+    G_ = np.array(G)
+    ax_cont[0, 0].plot(
+        W_[:, 0],
+        W_[:, 2],
+        ".",
+        markersize=1,
+        c=c[tries % len(c)],
+    )
+    ax_cont[0, 0].plot(
+        W_[-1, 0],
+        W_[-1, 2],
+        "*",
+        markersize=5,
+        label=f"{tries}",
+        c=c[tries % len(c)],
+    )
+
+    ax_cont[0, 1].plot(
+        W_[:, 1],
+        W_[:, 3],
+        ".",
+        markersize=1,
+        c=c[tries % len(c)],
+    )
+    ax_cont[0, 1].plot(
+        W_[-1, 1],
+        W_[-1, 3],
+        "*",
+        markersize=5,
+        label=f"{tries}",
+        c=c[tries % len(c)],
+    )
+
+    ax_cont[1, 0].plot(
+        # W_[:, 4],  #
+        W_[:, 0] * W_[:, 4],
+        ".",
+        markersize=1,
+        label=f"{tries}",
+        c=c[tries % len(c)],
+    )
+
+    ax_cont[1, 1].plot(
+        # W_[:, 5],  #
+        W_[:, 1] * W_[:, 5],
+        ".",
+        markersize=1,
+        label=f"{tries}",
+        c=c[tries % len(c)],
+    )
+
+    # ax_cont[0,0].legend(fontsize=10)
+    # ax_cont[0,1].legend(fontsize=10)
+    # break
+
+# %%
 fig, ax = plt.subplots(1, 1, figsize=(6, 6))
 W_ = np.array(W)
 G_ = np.array(G)

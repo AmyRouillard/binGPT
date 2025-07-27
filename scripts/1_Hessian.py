@@ -2,6 +2,7 @@
 
 import sympy as sp
 
+# %%
 # Declare symbols
 w11, w12, w21, w22 = sp.symbols("w_1^1 w_1^2 w_2^1 w_2^2")
 b11, b21 = sp.symbols("b^1_1 b^2_1")
@@ -127,4 +128,34 @@ eigenvals = H_shifted.eigenvals()
 for val, mult in eigenvals.items():
     print(f"Eigenvalue: {val}, Multiplicity: {mult}")
 
+# %%
+
+w11, w12, w21, w22 = sp.symbols("a b c d")
+
+A = sp.Matrix(
+    [
+        [w11, 0, 0],
+        [0, w12, 0],
+        [w21, 0, 0],
+        [0, w22, 0],
+    ]
+)
+
+# [[0, A], [A^T, 0]] is the block matrix
+H_block = sp.BlockMatrix(
+    [
+        [sp.zeros(4, 4), A],
+        [A.T, sp.zeros(3, 3)],
+    ]
+).as_explicit()
+# Eigenvalues and eigenvectors of the block matrix
+eigenvals_block = H_block.eigenvals()
+# Print the symbolic eigenvalues of the block matrix
+for val, mult in eigenvals_block.items():
+    print(f"Block Eigenvalue: {val}, Multiplicity: {mult}")
+
+# %%
+
+# eigenvectors of the block matrix
+eigenvecs_block = H_block.eigenvects()
 # %%
