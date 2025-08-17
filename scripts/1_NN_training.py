@@ -11,67 +11,19 @@ from utils.optimizers import SaddleFreeNewton
 
 # %%
 
-slope = 0.01
 
-
-class shallowNN(torch.nn.Module):
-    def __init__(self, input_size, hidden_size, output_size, activation="relu"):
-        super(shallowNN, self).__init__()
-        self.fc1 = torch.nn.Linear(input_size, hidden_size)
-        self.fcL = torch.nn.Linear(hidden_size, output_size)
-
-        if activation == "relu":
-            self.activation = torch.nn.ReLU()
-        elif activation == "prelu":
-            self.activation = torch.nn.PReLU(init=slope)
-        else:
-            raise ValueError("Unknown activation function: {}".format(activation))
-
-    def forward(self, x):
-        x = self.fc1(x)
-        x = self.activation(x)
-        x = self.fcL(x)
-
-        return x
-
-    def initialize_weights(self, method="He", args=None):
-        if method == "He":
-            torch.nn.init.kaiming_uniform_(self.fc1.weight, nonlinearity="relu")
-            torch.nn.init.kaiming_uniform_(self.fcL.weight, nonlinearity="linear")
-            torch.nn.init.zeros_(self.fc1.bias)
-            torch.nn.init.zeros_(self.fcL.bias)
-        elif method == "Shin":
-            torch.nn.init.kaiming_normal_(self.fc1.weight, nonlinearity="relu")
-
-            # init bias as in Shin et al. 2020
-            if args is None:
-                raise ValueError("args must be provided for Shin initialization")
-            with torch.no_grad():
-                b = torch.mul(self.fc1.weight, args["x1"]).reshape(self.fc1.bias.shape)
-                b += (
-                    torch.abs(torch.randn_like(b))
-                    * torch.sqrt(self.fc1.weight.var(dim=0))
-                    * 0.5
-                )
-                # set bias
-            self.fc1.bias = torch.nn.Parameter(b)
-
-            torch.nn.init.kaiming_normal_(self.fcL.weight, nonlinearity="linear")
-            torch.nn.init.zeros_(self.fcL.bias)
-
-        else:
-            raise ValueError("Unknown initialization method: {}".format(method))
-
-
-class deepNN(torch.nn.Module):
-    def __init__(self, input_size, hidden_size, output_size, hL=1, activation="relu"):
-        super(deepNN, self).__init__()
+class ffNN(torch.nn.Module):
+    def __init__(
+        self, input_size, hidden_size, output_size, hL=1, activation="relu", slope=0.01
+    ):
+        super(ffNN, self).__init__()
         self.hL = hL  # number of hidden layers
         self.fc1 = torch.nn.Linear(input_size, hidden_size)
         self.fcj = torch.nn.ModuleList(
             [torch.nn.Linear(hidden_size, hidden_size) for _ in range(self.hL - 1)]
         )
         self.fcL = torch.nn.Linear(hidden_size, output_size)
+        self.slope = slope
 
         if activation == "relu":
             self.activation = torch.nn.ReLU()
@@ -90,14 +42,43 @@ class deepNN(torch.nn.Module):
 
         return x
 
+    def count_active_neurons(self, x):
+        """
+        Returns a dict with layer names and counts of non-zero activations per neuron.
+        """
+        counts = {}
+        with torch.no_grad():
+            out = self.fc1(x)
+            act1 = self.activation(out)
+            counts["fc1"] = (act1 != 0).sum(dim=0).cpu().numpy()
+            for i, layer in enumerate(self.fcj):
+                out = layer(act1)
+                act1 = self.activation(out)
+                counts[f"fcj_{i}"] = (act1 != 0).sum(dim=0).cpu().numpy()
+            # Output layer is usually not checked for dead neurons
+        return counts
+
+    def scale_weights(self, scale=1.0):
+        with torch.no_grad():
+            self.fc1.weight.mul_(scale)
+            self.fcL.weight.mul_(scale)
+            for z in self.fcj:
+                z.weight.mul_(scale)
+
     def initialize_weights(self, method="He", args=None):
         if method == "He":
-            torch.nn.init.kaiming_uniform_(self.fc1.weight, nonlinearity="relu")
-            torch.nn.init.kaiming_uniform_(self.fcL.weight, nonlinearity="linear")
+            torch.nn.init.kaiming_uniform_(
+                self.fc1.weight, nonlinearity="relu", mode="fan_out"
+            )
+            torch.nn.init.kaiming_uniform_(
+                self.fcL.weight, nonlinearity="linear", mode="fan_out"
+            )
             torch.nn.init.zeros_(self.fc1.bias)
             torch.nn.init.zeros_(self.fcL.bias)
             for z in self.fcj:
-                torch.nn.init.kaiming_uniform_(z.weight, nonlinearity="relu")
+                torch.nn.init.kaiming_uniform_(
+                    z.weight, nonlinearity="relu", mode="fan_out"
+                )
                 torch.nn.init.zeros_(z.bias)
         elif method == "Shin":
             torch.nn.init.kaiming_normal_(self.fc1.weight, nonlinearity="relu")
@@ -140,19 +121,148 @@ class deepNN(torch.nn.Module):
         else:
             raise ValueError("Unknown initialization method: {}".format(method))
 
+    def get_gradients(self, loss):
+        """
+        Returns a dictionary of gradients for each parameter.
+        """
+        grads = torch.autograd.grad(loss, self.parameters(), retain_graph=True)
+        grad_dict = {}
+        for (name, param), grad in zip(self.named_parameters(), grads):
+            grad_dict[name] = grad.detach().cpu().numpy()
+        return grad_dict
+
+    def get_flat_gradient(self, loss):
+        """
+        Returns the flattened gradient vector.
+        """
+        grads = torch.autograd.grad(loss, self.parameters(), retain_graph=True)
+        flat_grad = torch.cat([g.contiguous().view(-1) for g in grads])
+        return flat_grad.detach().cpu().numpy()
+
+    def compute_hessian(self, loss):
+        """
+        Computes the Hessian matrix of the loss with respect to model parameters.
+        Returns a [n_params, n_params] torch.Tensor.
+        """
+        params = [p for p in self.parameters() if p.requires_grad]
+        flat_grad = torch.cat(
+            [
+                g.contiguous().view(-1)
+                for g in torch.autograd.grad(loss, params, create_graph=True)
+            ]
+        )
+        hessian = []
+        for g in flat_grad:
+            second_grads = torch.autograd.grad(g, params, retain_graph=True)
+            h_row = torch.cat([sg.contiguous().view(-1) for sg in second_grads])
+            hessian.append(h_row)
+        hessian = torch.stack(hessian)
+        return hessian
+
+    def compute_hessian_blocks(self, loss):
+        """
+        Returns a dict mapping (name0, name1) to Hessian blocks of shape
+        [param0.numel(), param1.numel()].
+        """
+        params = [p for p in self.parameters() if p.requires_grad]
+        names = [name for name, p in self.named_parameters() if p.requires_grad]
+        hessian_dict = {}
+
+        # Compute gradients for each parameter
+        grads = torch.autograd.grad(loss, params, create_graph=True)
+        flat_grads = []
+        for g in grads:
+            flat_grads.append(g.contiguous().view(-1))
+
+        # For each pair of parameters, compute the Hessian block
+        for i, (name_i, param_i) in enumerate(zip(names, params)):
+            for j, (name_j, param_j) in enumerate(zip(names, params)):
+                block = []
+                for k in range(param_i.numel()):
+                    grad_i_k = flat_grads[i][k]
+                    second_grads = torch.autograd.grad(
+                        grad_i_k, param_j, retain_graph=True
+                    )[0]
+                    block.append(second_grads.contiguous().view(-1))
+                block_tensor = torch.stack(
+                    block
+                )  # shape: [param_i.numel(), param_j.numel()]
+                hessian_dict[(name_i, name_j)] = block_tensor
+        return hessian_dict
+
+    def prune_dead_neurons(self, x, threshold=0):
+        """
+        Removes dead neurons (neurons with activation count <= threshold) from hidden layers.
+        Updates weights and biases accordingly.
+        """
+        with torch.no_grad():
+            # Prune fc1
+            out = self.fc1(x)
+            act1 = self.activation(out)
+            alive_mask = (act1 != 0).sum(dim=0).cpu().numpy() > threshold
+            if alive_mask.sum() <= 1:
+                raise ValueError(
+                    "All but one of the neurons in fc1 are dead. Cannot prune."
+                )
+            if alive_mask.sum() < self.fc1.out_features:
+                new_out_features = int(alive_mask.sum())
+                new_fc1 = torch.nn.Linear(self.fc1.in_features, new_out_features)
+                new_fc1.weight.data = self.fc1.weight.data[alive_mask, :]
+                new_fc1.bias.data = self.fc1.bias.data[alive_mask]
+                self.fc1 = new_fc1
+
+            # Prune fcj layers
+            prev_mask = alive_mask
+            for i, layer in enumerate(self.fcj):
+                out = layer(act1)
+                act1_tmp = self.activation(out)
+                alive_mask = (act1_tmp != 0).sum(dim=0).cpu().numpy() > threshold
+                # if alive_mask.sum() <= 1:
+                #     raise ValueError(f"All but one of neurons in fcj_{i} are dead. Cannot prune.")
+                if alive_mask.sum() <= 1:
+                    # Mark this layer for removal
+                    self.fcj[i] = None
+                    # prev_mask = np.ones(layer.out_features, dtype=bool)
+                    continue
+                act1 = act1_tmp
+                if alive_mask.sum() < layer.out_features:
+                    new_layer = torch.nn.Linear(
+                        layer.in_features, int(alive_mask.sum())
+                    )
+                    new_layer.weight.data = layer.weight.data[alive_mask, :]
+                    new_layer.bias.data = layer.bias.data[alive_mask]
+                    self.fcj[i] = new_layer
+                # Prune input weights if previous layer was pruned
+                if prev_mask.sum() < layer.in_features:
+                    self.fcj[i].weight.data = self.fcj[i].weight.data[:, prev_mask]
+                prev_mask = alive_mask
+
+            # Remove None layers from fcj
+            self.fcj = torch.nn.ModuleList(
+                [layer for layer in self.fcj if layer is not None]
+            )
+
+            # Prune fcL input weights if last hidden layer was pruned
+            if prev_mask.sum() < self.fcL.in_features:
+                new_fcL = torch.nn.Linear(int(prev_mask.sum()), self.fcL.out_features)
+                new_fcL.weight.data = self.fcL.weight.data[:, prev_mask]
+                new_fcL.bias.data = self.fcL.bias.data
+                self.fcL = new_fcL
+
 
 # %%
 
 data_type = "decimal"
 tokenized = False
 
-q = 2  # number of repetitions
-length = q * 2 + max(6 - q, 0)  # length of the binary sequence
+q = 4  # number of repetitions
+length = 10  # q * 2 + max(6 - q, 0)  # length of the binary sequence
 shift = True
+# shift = False
 model_type = "deep"
 # model_type = "shallow"
-# activation = "relu"
-activation = "prelu"
+activation = "relu"
+# activation = "prelu"
 
 train_dataset = TentDataset(
     "train",
@@ -168,11 +278,11 @@ test_dataset = TentDataset(
     type=data_type,
     tokenized=tokenized,
 )
-
+size_dataset = train_dataset.__len__() + test_dataset.__len__()
 # Small batch size or full batch size
-batch_size = min([2**10, train_dataset.__len__() + test_dataset.__len__()])
+batch_size = min([2**7, size_dataset])
 
-loader = DataLoader(
+loader_train = DataLoader(
     train_dataset + test_dataset,
     batch_size=batch_size,
     num_workers=0,
@@ -180,19 +290,36 @@ loader = DataLoader(
     shuffle=True,
 )
 
+loader = DataLoader(
+    train_dataset + test_dataset,
+    batch_size=size_dataset,
+    num_workers=0,
+    drop_last=False,
+    shuffle=False,
+)
 # %%
 
 if model_type == "shallow":
+
+    model = ffNN(
+        input_size=1,
+        hidden_size=2**q,
+        output_size=1,
+        hL=1,
+        activation=activation,
+    )
+
     W_1 = np.array([2**q for _ in range(2**q)]).reshape(2**q, 1)
-    b_1 = np.array([-k for k in range(1, 2**q)] + [0])
+    b_1 = np.array([0] + [-k for k in range(1, 2**q)])
 
     if activation == "relu":
-        W_2 = np.array([(-1) ** k * 2 for k in range(1, 2**q)] + [1]).reshape(1, 2**q)
+        W_2 = np.array([1] + [(-1) ** k * 2 for k in range(1, 2**q)]).reshape(1, 2**q)
         b_2 = np.array([0])
     elif activation == "prelu":
+        slope = model.slope
         W_2 = np.array(
-            [(-1) ** k * 2 / (1 - slope) for k in range(1, 2**q)]
-            + [(1 + slope) / (1 - slope)]
+            [(1 + slope) / (1 - slope)]
+            + [(-1) ** k * 2 / (1 - slope) for k in range(1, 2**q)]
         ).reshape(1, 2**q)
         b_2 = np.array([-(2**q) * slope / (1 - slope)])
     else:
@@ -204,13 +331,6 @@ if model_type == "shallow":
 
     # W_1, b_1, W_2, b_2
     print(W_1.shape, b_1.shape, W_2.shape, b_2.shape)
-
-    model = shallowNN(
-        input_size=1,
-        hidden_size=2**q,
-        output_size=1,
-        activation=activation,
-    )
 
     print("Model weights:")
     for name, param in model.named_parameters():
@@ -231,6 +351,14 @@ if model_type == "shallow":
 
 elif model_type == "deep":
 
+    model = ffNN(
+        input_size=1,
+        hidden_size=2,
+        output_size=1,
+        hL=q,
+        activation=activation,
+    )
+
     W_1 = np.array([2**1 for _ in range(2**1)]).reshape(2, 1)
     b_1 = np.array([-k for k in range(1, 2**1)] + [0])
 
@@ -238,6 +366,7 @@ elif model_type == "deep":
         W_L = np.array([(-1) ** k * 2 for k in range(1, 2**1)] + [1]).reshape(1, 2)
         b_L = np.array([0])
     elif activation == "prelu":
+        slope = model.slope
         W_L = np.array(
             [(-1) ** k * 2 / (1 - slope) for k in range(1, 2**1)]
             + [(1 + slope) / (1 - slope)]
@@ -255,14 +384,6 @@ elif model_type == "deep":
 
     # W_1, b_1, W_j, b_j, W_L, b_L
     print(W_1.shape, b_1.shape, W_j.shape, b_j.shape, W_L.shape, b_L.shape)
-
-    model = deepNN(
-        input_size=1,
-        hidden_size=2,
-        output_size=1,
-        hL=q,
-        activation=activation,
-    )
 
     print("Model weights:")
     for name, param in model.named_parameters():
@@ -337,24 +458,248 @@ ax.set_aspect("equal")
 
 # %%
 
-if model_type == "deep":
-    model = deepNN(
-        input_size=1,
-        hidden_size=2,
-        output_size=1,
-        hL=q,
-        activation=activation,
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+
+
+def plot_network_activations(model, data_loader):
+    """
+    Visualizes the network structure and colors neurons by activation counts.
+    """
+    counts_dict = {}
+    # Count active neurons
+    for name, param in model.named_parameters():
+        if "weight" in name and "fcL" not in name:
+            name = name.replace("weight", "").strip(".").replace(".", "_")
+            counts_dict[name] = 0
+    for x, _ in data_loader:
+        if shift:
+            x = x - 0.5
+
+        x = x.view(x.shape[0], -1)
+        counts = model.count_active_neurons(x)
+        for name, count in counts.items():
+            if name in counts_dict:
+                counts_dict[name] += count
+
+    layer_sizes = [model.fc1.in_features, model.fc1.out_features]
+    for z in model.fcj:
+        layer_sizes.append(z.out_features)
+    layer_sizes.append(model.fcL.out_features)
+
+    # get model weights and biases
+    weights = []
+    biases = []
+    for name, param in model.named_parameters():
+        if "weight" in name:
+            weights.append(param.data.numpy())
+        elif "bias" in name:
+            biases.append(param.data.numpy())
+    max_weight = max([w.max() for w in weights])
+    min_weight = min([w.min() for w in weights])
+    max_bias = max([b.max() for b in biases])
+    min_bias = min([b.min() for b in biases])
+    if min_weight == max_weight:
+        min_weight = -1
+        max_weight = 1
+    if min_bias == max_bias:
+        min_bias = -1
+        max_bias = 1
+
+    if model_type == "deep":
+        fig, ax = plt.subplots(figsize=(10, 4))
+        xoffset = 0.1
+    elif model_type == "shallow":
+        fig, ax = plt.subplots(figsize=(10, 8))
+        xoffset = 0.05
+    else:
+        fig, ax = plt.subplots(figsize=(10, 8))
+        xoffset = 0.1
+
+    v_spacing = 1.0
+    h_spacing = 1.0
+    max_layer_size = max(layer_sizes)
+
+    # Find max count for color normalization
+    max_count = size_dataset
+    cmap = plt.get_cmap("RdYlGn")
+    norm = plt.Normalize(vmin=0, vmax=1)
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+
+    cmapW = plt.get_cmap("jet")
+    sm_w = plt.cm.ScalarMappable(
+        cmap=cmapW, norm=plt.Normalize(vmin=min_weight, vmax=max_weight)
     )
-elif model_type == "shallow":
-    model = shallowNN(
-        input_size=1,
-        hidden_size=2**q,
-        output_size=1,
-        activation=activation,
+    sm_w.set_array([])
+
+    cmapB = plt.get_cmap("jet")
+    sm_b = plt.cm.ScalarMappable(
+        cmap=cmapB, norm=plt.Normalize(vmin=min_bias, vmax=max_bias)
     )
 
-# init_method = "He"
-init_method = "Shin"
+    # Draw neurons
+    for layer_idx, layer_size in enumerate(layer_sizes):
+        y_offset = (max_layer_size - layer_size) / 2 * v_spacing
+        for neuron_idx in range(layer_size):
+            if layer_idx == 0:
+                color = "lightgray"
+                label = "Input" if neuron_idx == 0 else None
+            elif layer_idx == len(layer_sizes) - 1:
+                color = "lightgray"
+                label = "Output" if neuron_idx == 0 else None
+            else:
+                layer_name = "fc1" if layer_idx == 1 else f"fcj_{layer_idx-2}"
+                count = counts_dict[layer_name][neuron_idx]
+                norm_count = count / max_count if max_count > 0 else 0
+                norm_count = count / max_count if max_count > 0 else 0
+                color = cmap(norm_count)
+                label = layer_name if neuron_idx == 0 else None
+            ax.scatter(
+                layer_idx * h_spacing,
+                y_offset + neuron_idx * v_spacing,
+                s=400,
+                color=color,
+                edgecolors="black",
+                label=label,
+                zorder=3,
+            )
+
+    for layer_idx in range(len(layer_sizes) - 1):
+        prev_size = layer_sizes[layer_idx]
+        next_size = layer_sizes[layer_idx + 1]
+        y_offset_prev = (max_layer_size - prev_size) / 2 * v_spacing
+        y_offset_next = (max_layer_size - next_size) / 2 * v_spacing
+        for j in range(next_size):
+            colorB = cmapB((biases[layer_idx][j] - min_bias) / (max_bias - min_bias))
+            for i in range(prev_size):
+                colorW = cmapW(
+                    (weights[layer_idx][j, i] - min_weight) / (max_weight - min_weight)
+                )
+                if (
+                    # layer_idx != 0
+                    # and layer_idx != len(layer_sizes) - 2
+                    prev_size != 1
+                    and next_size != 1
+                    and (
+                        (i == 0 and j == 0)
+                        or (i == prev_size - 1 and j == next_size - 1)
+                    )
+                ):
+                    ax.plot(
+                        [layer_idx * h_spacing, (layer_idx + 1) * h_spacing],
+                        [
+                            y_offset_prev + i * v_spacing + xoffset / 8,
+                            y_offset_next + j * v_spacing + xoffset / 8,
+                        ],
+                        "-",
+                        zorder=1,
+                        color=colorW,
+                        linewidth=3,
+                    )
+                    if i == 0:
+                        ax.plot(
+                            [layer_idx * h_spacing, (layer_idx + 1) * h_spacing],
+                            [
+                                y_offset_prev + i * v_spacing - xoffset / 8,
+                                y_offset_next + j * v_spacing - xoffset / 8,
+                            ],
+                            "--",
+                            zorder=1,
+                            color=colorB,
+                            linewidth=3,
+                        )
+                else:
+                    ax.plot(
+                        [
+                            layer_idx * h_spacing + xoffset / 2,
+                            (layer_idx + 1) * h_spacing + xoffset / 2,
+                        ],
+                        [y_offset_prev + i * v_spacing, y_offset_next + j * v_spacing],
+                        "-",
+                        zorder=1,
+                        color=colorW,
+                        linewidth=3,
+                    )
+                    if i == 0:
+                        ax.plot(
+                            [
+                                layer_idx * h_spacing - xoffset / 2,
+                                (layer_idx + 1) * h_spacing - xoffset / 2,
+                            ],
+                            [
+                                y_offset_prev + i * v_spacing,
+                                y_offset_next + j * v_spacing,
+                            ],
+                            "--",
+                            zorder=1,
+                            color=colorB,
+                            linewidth=3,
+                        )
+    ax.set_xticks([i * h_spacing for i in range(len(layer_sizes))])
+    ax.set_xticklabels(
+        ["Input"] + [f"Hidden {i+1}" for i in range(len(layer_sizes) - 2)] + ["Output"]
+    )
+    ax.set_yticks([])
+
+    cbar = plt.colorbar(sm, ax=ax, pad=0.02)
+    cbar.set_label("% active", fontsize=12)
+    cbar_w = plt.colorbar(
+        sm_w,
+        ax=ax,
+        pad=0.02,
+    )  # orientation="horizontal")
+    cbar_w.set_label("Weight", fontsize=12)
+    cbar_b = plt.colorbar(
+        sm_b,
+        ax=ax,
+        pad=0.02,
+    )  # orientation="horizontal")
+    cbar_b.set_label("Bias", fontsize=12)
+
+    plt.tight_layout()
+
+    plt.show()
+
+
+# Usage example after a forward pass:
+x_batch, _ = next(iter(loader))
+if shift:
+    x_batch = x_batch - 0.5
+
+plot_network_activations(model, loader)
+# prune dead neurons
+model.prune_dead_neurons(x_batch, threshold=0)
+plot_network_activations(model, loader)
+
+# %%
+
+# if model_type == "deep":
+#     model = ffNN(
+#         input_size=1,
+#         hidden_size=2,
+#         output_size=1,
+#         hL=q,
+#         activation=activation,
+#     )
+# elif model_type == "shallow":
+#     model = ffNN(
+#         input_size=1,
+#         hidden_size=2**q,
+#         output_size=1,
+#         hL=1,
+#         activation=activation,
+#     )
+
+model = ffNN(
+    input_size=1,
+    hidden_size=2 ** (q // 2),
+    output_size=1,
+    hL=2 * q,
+    activation=activation,
+)
+init_method = "He"
+# init_method = "Shin"
 
 if init_method == "He":
     args = None
@@ -389,18 +734,32 @@ for name, param in model.named_parameters():
     print(name, param.data, param.shape)
 print()
 
+plot_network_activations(model, loader)
+print()
+# prune dead neurons
+model.prune_dead_neurons(x_batch, threshold=0)
+counts_dict = model.count_active_neurons(x_batch)
+plot_network_activations(model, loader)
 
-W = []
-weights = []
-w_name = []
+# print the product of the the number of neurons in each layer
+print("Number of neurons in each layer:")
+N = 1
 for name, param in model.named_parameters():
-    if param.requires_grad:
-        weights.extend(param.data.numpy().flatten().tolist())
-        w_name += [name + f"_{i}" for i in range(len(param.data.numpy().flatten()))]
+    if "weight" in name:
+        N *= param.shape[0]
+print(f"current:{N} min:{2**q}")
 
-W.append(weights)
+# W = []
+# weights = []
+# w_name = []
+# for name, param in model.named_parameters():
+#     if param.requires_grad:
+#         weights.extend(param.data.numpy().flatten().tolist())
+#         w_name += [name + f"_{i}" for i in range(len(param.data.numpy().flatten()))]
 
-G = []
+# W.append(weights)
+
+# G = []
 
 criterion = torch.nn.MSELoss()
 # optimizer = torch.optim.SGD(
@@ -408,27 +767,30 @@ criterion = torch.nn.MSELoss()
 #     lr=0.01,
 #     momentum=0.0,
 # )
-# optimizer = torch.optim.Adam(
-#     model.parameters(),
-#     lr=0.003,
-#     betas=(0.9, 0.999),
-#     eps=1e-08,
-#     weight_decay=0.0,
-#     amsgrad=False,
-# )
-optimizer = SaddleFreeNewton(
+optimizer = torch.optim.Adam(
     model.parameters(),
     lr=0.003,
+    betas=(0.9, 0.999),
+    eps=1e-08,
+    weight_decay=0.0,
+    amsgrad=False,
 )
+# optimizer = SaddleFreeNewton(
+#     model.parameters(),
+#     lr=0.003,
+# )
 
-fig_model, ax_model = plt.subplots(1, 1, figsize=(10, 5))
 
 current_loss = torch.inf
 loss_threshold = 1e-6
 stop_condition = False
-for epoch in range(100000):
 
-    for i, (x, y) in enumerate(loader):
+Y_hat_0 = []
+X = []
+Y = []
+for epoch in range(1000):
+
+    for i, (x, y) in enumerate(loader_train):
 
         if shift:
             x = x - 0.5
@@ -437,55 +799,51 @@ for epoch in range(100000):
         if epoch == 0:
             with torch.no_grad():
                 y_pred = model(x)
-            ax_model.plot(
-                x, y_pred.detach().numpy().flatten(), ".", label=f"initial prediction"
-            )
+            Y_hat_0.append(y_pred.detach().numpy().flatten())
+            Y.append(y.detach().numpy().flatten())
+            X.append(x.detach().numpy().flatten())
+        # def closure():
+        #     optimizer.zero_grad()
+        #     y_pred = model(x)
+        #     loss = criterion(y_pred, y)
 
-        def closure():
-            optimizer.zero_grad()
-            y_pred = model(x)
-            loss = criterion(y_pred, y)
+        #     if isinstance(optimizer, SaddleFreeNewton):
+        #         pass
+        #     else:
+        #         loss.backward()
 
-            if isinstance(optimizer, SaddleFreeNewton):
-                pass
-            else:
-                loss.backward()
+        #     return loss
 
-            return loss
+        # if isinstance(optimizer, SaddleFreeNewton):
+        #     loss, update = optimizer.step(closure)
+        #     w = []
+        #     for p in update:
+        #         w.extend(p.detach().numpy().flatten())
+        #     G.append(w)
+        # else:
+        #     loss = optimizer.step(closure)
+        #     w = []
+        #     for name, param in model.named_parameters():
+        #         if param.requires_grad:
+        #             w.extend(param.grad.data.numpy().flatten())
+        #     G.append(w)
 
-        if isinstance(optimizer, SaddleFreeNewton):
-            loss, update = optimizer.step(closure)
+        optimizer.zero_grad()
+        y_pred = model(x)
+        loss = criterion(y_pred, y)
+        loss.backward()
 
-            w = []
-            for p in update:
-                w.extend(p.detach().numpy().flatten())
-            G.append(w)
+        # w = []
+        # for name, param in model.named_parameters():
+        #     if param.requires_grad:
+        #         w.extend(param.grad.data.numpy().flatten())
+        # G.append(w)
+        # weights = []
+        # for name, param in model.named_parameters():
+        #     if param.requires_grad:
+        #         weights.extend(param.data.numpy().flatten())
 
-            # y_pred = model(x)
-            # loss = criterion(y_pred, y)
-            # loss.backward()
-            # w = []
-            # for name, param in model.named_parameters():
-            #     if param.requires_grad:
-            #         w.extend(param.grad.data.numpy().flatten())
-            # G.append(w)
-        else:
-            loss = optimizer.step(closure)
-            w = []
-            for name, param in model.named_parameters():
-                if param.requires_grad:
-                    w.extend(param.grad.data.numpy().flatten())
-            G.append(w)
-
-        weights = []
-        for name, param in model.named_parameters():
-            if param.requires_grad:
-                weights.extend(param.data.numpy().flatten())
-
-        W.append(weights)
-
-        if epoch % 500 == 0:
-            print(f"Epoch {epoch}, Batch {i}, Loss: {loss.item():.2e}")
+        # W.append(weights)
 
         if (
             current_loss < loss_threshold
@@ -493,11 +851,61 @@ for epoch in range(100000):
             stop_condition = True
             break
         current_loss = loss.item()
+
+    if epoch == 0:
+        fig_model, ax_model = plt.subplots(1, 1, figsize=(10, 5))
+
+        X = np.concatenate(X)
+        Y = np.concatenate(Y)
+        Y_hat_0 = np.concatenate(Y_hat_0)
+        ax_model.plot(X, Y_hat_0, ".", label=f"initial prediction")
+        ax_model.plot(X, Y, "o", label=f"true", markersize=2, markerfacecolor="none")
+        ax_model.set_xlabel("x", fontsize=14)
+        ax_model.set_ylabel(f"$f^q(x)$", fontsize=14)
+        ax_model.legend(fontsize=10)
+        ax_model.set_aspect("equal")
+        fig_model.tight_layout()
+        plt.show()
+
+    model.prune_dead_neurons(x_batch, threshold=0)
+    # optimizer = torch.optim.SGD(
+    #     model.parameters(),
+    #     lr=0.01,
+    #     momentum=0.0,
+    # )
+    optimizer = torch.optim.Adam(
+        model.parameters(),
+        lr=0.003,
+        betas=(0.9, 0.999),
+        eps=1e-08,
+        weight_decay=0.0,
+        amsgrad=False,
+    )
+    # optimizer = SaddleFreeNewton(
+    #     model.parameters(),
+    #     lr=0.003,
+    # )
+    N = 1
+    for name, param in model.named_parameters():
+        if "weight" in name:
+            N *= param.shape[0]
+
+    if epoch % 100 == 0:
+        print(f"Epoch {epoch}, Batch {i}, Loss: {loss.item():.2e}")
+        print(f"current:{N} min:{2**q}")
+
+    if N < 2**q:
+        print(
+            f"Pruned {2**q - N} neurons at epoch {epoch}. Current number of neurons: {N}"
+        )
+        break
     if stop_condition:
         print(
             f"Stopping training at epoch {epoch} due to convergence. Current loss: {current_loss:.2e}"
         )
         break
+
+    # break
 
 print()
 
@@ -509,58 +917,62 @@ for name, param in model.named_parameters():
 
 print()
 
-fig, ax = plt.subplots(2, 2, figsize=(10, 10), sharex=True)
-W_ = np.array(W)
-G_ = np.array(G)
-for i in range(G_.shape[1]):
-    mean_G = np.max(np.abs(G_[:, i]))
-    # print(f"Weight {i}: {w_name[i]}, mean gradient: {mean_G:.2e}")
-    if mean_G > 1e-3:
-        name = w_name[i]
-        if "bias" in name:
-            ax[0, 1].plot(W_[:, i], ".", label=f"{name}")
-            ax[1, 1].plot(G_[:, i], ".", label=f"{name}_grad")
-        else:
-            ax[0, 0].plot(W_[:, i], ".", label=f"{name}")
-            ax[1, 0].plot(G_[:, i], ".", label=f"{name}_grad")
-    else:
-        print(f"{w_name[i]} is dead")
+# fig, ax = plt.subplots(2, 2, figsize=(10, 10), sharex=True)
+# W_ = np.array(W)
+# G_ = np.array(G)
+# for i in range(G_.shape[1]):
+#     mean_G = np.max(np.abs(G_[:, i]))
+#     # print(f"Weight {i}: {w_name[i]}, mean gradient: {mean_G:.2e}")
+#     if mean_G > 1e-3:
+#         name = w_name[i]
+#         if "bias" in name:
+#             ax[0, 1].plot(W_[:, i], ".", label=f"{name}")
+#             ax[1, 1].plot(G_[:, i], ".", label=f"{name}_grad")
+#         else:
+#             ax[0, 0].plot(W_[:, i], ".", label=f"{name}")
+#             ax[1, 0].plot(G_[:, i], ".", label=f"{name}_grad")
+#     else:
+#         print(f"{w_name[i]} is dead")
 
-# legend outside the plot
-for i in range(2):
-    ax[0, i].legend(fontsize=10, loc="upper left", bbox_to_anchor=(1, 1))
-    ax[1, i].legend(fontsize=10, loc="upper left", bbox_to_anchor=(1, 1))
-    ax[0, i].set_xlabel("Epoch", fontsize=10)
-    ax[1, i].set_xlabel("Epoch", fontsize=10)
+# # legend outside the plot
+# for i in range(2):
+#     ax[0, i].legend(fontsize=10, loc="upper left", bbox_to_anchor=(1, 1))
+#     ax[1, i].legend(fontsize=10, loc="upper left", bbox_to_anchor=(1, 1))
+#     ax[0, i].set_xlabel("Epoch", fontsize=10)
+#     ax[1, i].set_xlabel("Epoch", fontsize=10)
 
-ax[0, 0].set_title("Weights $W_i$", fontsize=14)
-ax[1, 0].set_title("Gradients $W_i$", fontsize=14)
-ax[0, 1].set_title("Bias $b_i$", fontsize=14)
-ax[1, 1].set_title("Gradients $b_i$", fontsize=14)
+# ax[0, 0].set_title("Weights $W_i$", fontsize=14)
+# ax[1, 0].set_title("Gradients $W_i$", fontsize=14)
+# ax[0, 1].set_title("Bias $b_i$", fontsize=14)
+# ax[1, 1].set_title("Gradients $b_i$", fontsize=14)
 
+# %%
+# fig.tight_layout()
 
-fig.tight_layout()
-
-
-for i, (x, y) in enumerate(loader):
+Y_hat = []
+X_hat = []
+for i, (x, y) in enumerate(loader_train):
 
     if shift:
         x = x - 0.5
         y = y - 0.5
 
-    # forward pass
     y_pred = model(x)
+    Y_hat.append(y_pred.detach().numpy().flatten())
+    X_hat.append(x.detach().numpy().flatten())
 
-    ax_model.plot(x, y_pred.detach().numpy().flatten(), ".", label=f"final prediction")
-    ax_model.plot(x, y, "o", label=f"true", markersize=2, markerfacecolor="none")
 
+Y_hat = np.concatenate(Y_hat)
+X_hat = np.concatenate(X_hat)
+
+ax_model.plot(X_hat, Y_hat, ".", label=f"final prediction")
 ax_model.set_xlabel("x", fontsize=14)
 ax_model.set_ylabel(f"$f^n(x)$", fontsize=14)
 ax_model.legend(fontsize=10)
 ax_model.set_aspect("equal")
 
 fig_model.tight_layout()
-
+fig_model
 # %%
 
 
