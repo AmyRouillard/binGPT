@@ -18,6 +18,7 @@ class ffNN(torch.nn.Module):
     ):
         super(ffNN, self).__init__()
         self.hL = hL  # number of hidden layers
+        self.dropout = torch.nn.Dropout(p=0.2)
 
         if isinstance(hidden_size, int):
             hidden_size = [hidden_size] * hL
@@ -33,19 +34,24 @@ class ffNN(torch.nn.Module):
 
         self.slope = slope
 
+        self.activation_name = activation
         if activation == "relu":
             self.activation = torch.nn.ReLU()
         elif activation == "prelu":
             self.activation = torch.nn.PReLU(init=slope)
+        elif activation == "leaky_relu":
+            self.activation = torch.nn.LeakyReLU(negative_slope=slope)
         else:
             raise ValueError("Unknown activation function: {}".format(activation))
 
     def forward(self, x):
         x = self.fc1(x)
         x = self.activation(x)
+        # x = self.dropout(x)
         for z in self.fcj:
             x = z(x)
             x = self.activation(x)
+            # x = self.dropout(x)
         x = self.fcL(x)
 
         return x
@@ -72,6 +78,199 @@ class ffNN(torch.nn.Module):
             self.fcL.weight.mul_(scale)
             for z in self.fcj:
                 z.weight.mul_(scale)
+
+    def plot_z(self, x):
+        X = self.activation(self.fc1(x))
+        N = self.fc1.in_features
+        fig, ax = plt.subplots(self.hL + 1, 1, figsize=(10, 6 * (self.hL + 1)))
+        for i in range(X.shape[1]):
+            ax[0].plot(
+                x.detach().cpu().numpy().reshape(-1),
+                X[:, i].detach().cpu().numpy(),
+                ".",
+                markersize=2,
+                label=f"Neuron {i}",
+            )
+
+            y = X[:, i].detach().cpu().numpy()
+            dx = np.diff(x.detach().cpu().numpy().reshape(-1))
+
+            dy = np.diff(y)
+            d2y = (dy[1:] / dx[1:] - dy[:-1] / dx[:-1]) / ((dx[1:] + dx[:-1]) / 2)
+
+            indices = np.argsort(np.abs(d2y))[-N:]
+
+            ax[0].plot(
+                x.detach().cpu().numpy().reshape(-1)[:-2][indices],
+                X[:, i].detach().cpu().numpy()[:-2][indices],
+                "ok",
+                markersize=5,
+                label=f"Neuron {i}",
+            )
+
+        ax[0].set_xlabel("X", fontsize=14)
+        ax[0].set_ylabel(f"z_{1}", fontsize=14)
+
+        for i, z in enumerate(self.fcj):
+            N *= z.in_features
+            X = self.activation(z(X))
+            for j in range(X.shape[1]):
+                ax[i + 1].plot(
+                    x.detach().cpu().numpy().reshape(-1),
+                    X[:, j].detach().cpu().numpy(),
+                    ".",
+                    markersize=2,
+                    label=f"Neuron {j}",
+                )
+
+                y = X[:, j].detach().cpu().numpy()
+                dx = np.diff(x.detach().cpu().numpy().reshape(-1))
+                dy = np.diff(y)
+                d2y = (dy[1:] / dx[1:] - dy[:-1] / dx[:-1]) / ((dx[1:] + dx[:-1]) / 2)
+                indices = np.argsort(np.abs(d2y))[-N:]
+
+                ax[i + 1].plot(
+                    x.detach().cpu().numpy().reshape(-1)[:-2][indices],
+                    X[:, j].detach().cpu().numpy()[:-2][indices],
+                    "ok",
+                    markersize=5,
+                    label=f"Neuron {i}",
+                )
+
+            ax[i + 1].set_xlabel("X", fontsize=14)
+            ax[i + 1].set_ylabel(f"z_{i+2}", fontsize=14)
+
+        N *= self.fcL.in_features
+        X = self.fcL(X)
+        for i in range(X.shape[1]):
+            ax[self.hL].plot(
+                x.detach().cpu().numpy().reshape(-1),
+                X[:, i].detach().cpu().numpy(),
+                ".",
+                markersize=2,
+                label=f"Neuron {i}",
+            )
+
+            y = X[:, i].detach().cpu().numpy()
+            dx = np.diff(x.detach().cpu().numpy().reshape(-1))
+            dy = np.diff(y)
+            d2y = (dy[1:] / dx[1:] - dy[:-1] / dx[:-1]) / ((dx[1:] + dx[:-1]) / 2)
+            indices = np.argsort(np.abs(d2y))[-N:]
+
+            ax[self.hL].plot(
+                x.detach().cpu().numpy().reshape(-1)[:-2][indices],
+                X[:, i].detach().cpu().numpy()[:-2][indices],
+                "ok",
+                markersize=5,
+                label=f"Neuron {i}",
+            )
+        fig.tight_layout()
+        ax[self.hL].set_xlabel("X", fontsize=14)
+        ax[self.hL].set_ylabel("Prediction", fontsize=14)
+
+        fig.tight_layout()
+
+        return fig, ax
+
+    def get_inputs_for_biases(self, in_features, out_features):
+
+        # Fixed distribution
+        offset = 0.5 if out_features > 1 else 0.0
+        x = torch.stack(
+            [torch.linspace(0, 1, out_features) - offset for _ in range(in_features)],
+            dim=1,
+        )
+
+        # # Random within bounds, fix vector
+        # if out_features == 1:
+        #     x = torch.rand(out_features) * 0.5
+        # elif out_features % 2 == 0:
+        #     bounds = torch.linspace(0, 0.5, out_features // 2 + 1)
+        #     # generate a random x in range bounds[i] to bounds[i+1]
+        #     xright = [
+        #         torch.rand(1) * (bounds[i + 1] - bounds[i]) + bounds[i]
+        #         for i in range(len(bounds) - 1)
+        #     ]
+        #     xsym = [-i for i in xright[::-1]]
+        #     # concatenate the two halves
+        #     x = torch.tensor(xsym + xright)
+        # else:
+        #     n = (out_features - 1) // 2
+        #     bounds = torch.linspace(1 / n / 2, 0.5, n)
+        #     xright = [
+        #         torch.rand(1) * (bounds[i + 1] - bounds[i]) + bounds[i]
+        #         for i in range(len(bounds) - 1)
+        #     ]
+        #     xmid = [(-2 * torch.rand(1) + 1) * bounds[0]]
+        #     xsym = [-i for i in xright[::-1]]
+        #     # concatenate the two halves
+        #     x = torch.tensor(xsym + xmid + xright)
+
+        # x = torch.stack(
+        #     [x for _ in range(in_features)],
+        #     dim=1,
+        # )
+
+        # # Random within bounds
+        # X = []
+        # for _ in range(in_features):
+        #     if out_features == 1:
+        #         x = torch.rand(out_features) * 0.5
+        #     elif out_features % 2 == 0:
+        #         bounds = torch.linspace(0, 0.5, out_features // 2 + 1)
+        #         # generate a random x in range bounds[i] to bounds[i+1]
+        #         xright = [
+        #             torch.rand(1) * (bounds[i + 1] - bounds[i]) + bounds[i]
+        #             for i in range(len(bounds) - 1)
+        #         ]
+        #         xsym = [-i for i in xright[::-1]]
+        #         # concatenate the two halves
+        #         x = torch.tensor(xsym + xright)
+        #     else:
+        #         n = (out_features - 1) // 2
+        #         bounds = torch.linspace(1 / n / 2, 0.5, n)
+        #         xright = [
+        #             torch.rand(1) * (bounds[i + 1] - bounds[i]) + bounds[i]
+        #             for i in range(len(bounds) - 1)
+        #         ]
+        #         xmid = [(-2 * torch.rand(1) + 1) * bounds[0]]
+        #         xsym = [-i for i in xright[::-1]]
+        #         # concatenate the two halves
+        #         x = torch.tensor(xsym + xmid + xright)
+
+        #     X.append(x)
+
+        # x = torch.stack(
+        #     X,
+        #     dim=1,
+        # )
+
+        # # Random
+        # X = []
+        # for _ in range(in_features):
+        #     if out_features == 1:
+        #         x = torch.rand(out_features) * 0.5
+        #     elif out_features % 2 == 0:
+        #         xright = [0.5 - torch.rand(1) for _ in range(out_features // 2)]
+        #         xsym = [-i for i in xright[::-1]]
+        #         # concatenate the two halves
+        #         x = torch.tensor(xsym + xright)
+        #     else:
+        #         n = (out_features - 1) // 2
+        #         xright = [0.5 - torch.rand(1) for _ in range(n)]
+        #         xmid = [-torch.rand(1) + 0.5]
+        #         xsym = [-i for i in xright[::-1]]
+        #         # concatenate the two halves
+        #         x = torch.tensor(xsym + xmid + xright)
+
+        #     X.append(x)
+
+        # x = torch.stack(
+        #     X,
+        #     dim=1,
+        # )
+
+        return x
 
     def initialize_weights(self, method="He", args=None):
         if method == "He":
@@ -139,90 +338,21 @@ class ffNN(torch.nn.Module):
             torch.nn.init.kaiming_normal_(self.fcL.weight, nonlinearity="relu")
             torch.nn.init.zeros_(self.fcL.bias)
 
-            X = args["X"]
             with torch.no_grad():
-                offset = 0.5 if self.fc1.out_features > 1 else 0.0
-                x = torch.stack(
-                    [
-                        torch.linspace(0, 1, self.fc1.out_features) - offset
-                        for _ in range(self.fc1.in_features)
-                    ],
-                    dim=1,
+                x = self.get_inputs_for_biases(
+                    self.fc1.in_features, self.fc1.out_features
                 )
 
                 self.fc1.bias = torch.nn.Parameter(torch.diag(-self.fc1(x)))
 
-                X = self.activation(self.fc1(X))
-                fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-                for i in range(X.shape[1]):
-                    ax.plot(
-                        args["X"].detach().cpu().numpy().reshape(-1),
-                        X[:, i].detach().cpu().numpy(),
-                        ".",
-                        markersize=2,
-                        label=f"Neuron {i}",
-                    )
-                fig.tight_layout()
-                ax.set_xlabel("X", fontsize=14)
-                ax.set_ylabel("Activation", fontsize=14)
-                ax.legend(fontsize=10)
-                ax.set_title("Activations of neurons in fc1", fontsize=16)
-                plt.show()
-
                 for i, z in enumerate(self.fcj):
-                    offset = 0.5 if z.out_features > 1 else 0.0
-                    x = torch.stack(
-                        [
-                            torch.linspace(0, 1, z.out_features) - offset
-                            for _ in range(z.in_features)
-                        ],
-                        dim=1,
-                    )
+                    x = self.get_inputs_for_biases(z.in_features, z.out_features)
                     z.bias = torch.nn.Parameter(torch.diag(-z(x)))
 
-                    X = self.activation(z(X))
-                    fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-                    for i in range(X.shape[1]):
-                        ax.plot(
-                            args["X"].detach().cpu().numpy().reshape(-1),
-                            X[:, i].detach().cpu().numpy(),
-                            ".",
-                            markersize=2,
-                            label=f"Neuron {i}",
-                        )
-                    fig.tight_layout()
-                    ax.set_xlabel("X", fontsize=14)
-                    ax.set_ylabel("Activation", fontsize=14)
-                    ax.legend(fontsize=10)
-                    ax.set_title("Activations of neurons in fc1", fontsize=16)
-                    plt.show()
-
-                offset = 0.5 if self.fc1.out_features > 1 else 0.0
-                x = torch.stack(
-                    [
-                        torch.linspace(0, 1, self.fcL.out_features) - offset
-                        for _ in range(self.fcL.in_features)
-                    ],
-                    dim=1,
-                )
-                self.fcL.bias = torch.nn.Parameter(torch.diag(-self.fcL(x)))
-
-                X = self.fcL(X)
-                fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-                for i in range(X.shape[1]):
-                    ax.plot(
-                        args["X"].detach().cpu().numpy().reshape(-1),
-                        X[:, i].detach().cpu().numpy(),
-                        ".",
-                        markersize=2,
-                        label=f"Neuron {i}",
-                    )
-                fig.tight_layout()
-                ax.set_xlabel("X", fontsize=14)
-                ax.set_ylabel("Activation", fontsize=14)
-                ax.legend(fontsize=10)
-                ax.set_title("Activations of neurons in fc1", fontsize=16)
-                plt.show()
+                # x = self.get_inputs_for_biases(
+                #     self.fcL.in_features, self.fcL.out_features
+                # )
+                # self.fcL.bias = torch.nn.Parameter(torch.diag(-self.fcL(x)))
 
         elif method == "New":
             torch.nn.init.kaiming_uniform_(
@@ -249,66 +379,17 @@ class ffNN(torch.nn.Module):
             torch.nn.init.zeros_(self.fcL.bias)
 
             x = args["x"]
-            X = args["X"]
             with torch.no_grad():
                 self.fc1.bias = torch.nn.Parameter(torch.diag(-self.fc1(x)))
                 x = self.activation(self.fc1(x))
                 X = self.activation(self.fc1(X))
 
-                fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-                for i in range(X.shape[1]):
-                    ax.plot(
-                        args["X"].detach().cpu().numpy().reshape(-1),
-                        X[:, i].detach().cpu().numpy(),
-                        ".",
-                        markersize=2,
-                        label=f"Neuron {i}",
-                    )
-                fig.tight_layout()
-                ax.set_xlabel("X", fontsize=14)
-                ax.set_ylabel("Activation", fontsize=14)
-                ax.legend(fontsize=10)
-                ax.set_title("Activations of neurons in fc1", fontsize=16)
-                plt.show()
-
                 for i, z in enumerate(self.fcj):
                     # z.bias = torch.nn.Parameter(torch.diag(-z(x)))
                     x = self.activation(z(x))
-                    X = self.activation(z(X))
-                    fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-                    for i in range(X.shape[1]):
-                        ax.plot(
-                            args["X"].detach().cpu().numpy().reshape(-1),
-                            X[:, i].detach().cpu().numpy(),
-                            ".",
-                            markersize=2,
-                            label=f"Neuron {i}",
-                        )
-                    fig.tight_layout()
-                    ax.set_xlabel("X", fontsize=14)
-                    ax.set_ylabel("Activation", fontsize=14)
-                    ax.legend(fontsize=10)
-                    ax.set_title("Activations of neurons in fc1", fontsize=16)
-                    plt.show()
 
                 self.fcL.bias = torch.nn.Parameter(torch.diag(-self.fcL(x)))
 
-                X = self.fcL(X)
-                fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-                for i in range(X.shape[1]):
-                    ax.plot(
-                        args["X"].detach().cpu().numpy().reshape(-1),
-                        X[:, i].detach().cpu().numpy(),
-                        ".",
-                        markersize=2,
-                        label=f"Neuron {i}",
-                    )
-                fig.tight_layout()
-                ax.set_xlabel("X", fontsize=14)
-                ax.set_ylabel("Activation", fontsize=14)
-                ax.legend(fontsize=10)
-                ax.set_title("Activations of neurons in fc1", fontsize=16)
-                plt.show()
         elif method == "Newnew":
             torch.nn.init.kaiming_uniform_(
                 self.fc1.weight,
@@ -334,27 +415,9 @@ class ffNN(torch.nn.Module):
             torch.nn.init.zeros_(self.fcL.bias)
 
             x = args["x"]
-            X = args["X"]
             with torch.no_grad():
                 self.fc1.bias = torch.nn.Parameter(torch.diag(-self.fc1(x)))
                 x = self.activation(self.fc1(x))
-                X = self.activation(self.fc1(X))
-
-                fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-                for i in range(X.shape[1]):
-                    ax.plot(
-                        args["X"].detach().cpu().numpy().reshape(-1),
-                        X[:, i].detach().cpu().numpy(),
-                        ".",
-                        markersize=2,
-                        label=f"Neuron {i}",
-                    )
-                fig.tight_layout()
-                ax.set_xlabel("X", fontsize=14)
-                ax.set_ylabel("Activation", fontsize=14)
-                ax.legend(fontsize=10)
-                ax.set_title("Activations of neurons in fc1", fontsize=16)
-                plt.show()
 
                 for i, z in enumerate(self.fcj):
 
@@ -365,42 +428,10 @@ class ffNN(torch.nn.Module):
                     )
 
                     x = self.activation(z(x))
-                    X = self.activation(z(X))
-                    fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-                    for i in range(X.shape[1]):
-                        ax.plot(
-                            args["X"].detach().cpu().numpy().reshape(-1),
-                            X[:, i].detach().cpu().numpy(),
-                            ".",
-                            markersize=2,
-                            label=f"Neuron {i}",
-                        )
-                    fig.tight_layout()
-                    ax.set_xlabel("X", fontsize=14)
-                    ax.set_ylabel("Activation", fontsize=14)
-                    ax.legend(fontsize=10)
-                    ax.set_title("Activations of neurons in fc1", fontsize=16)
-                    plt.show()
 
                 # x = torch.stack([args["x"].reshape(-1) for _ in range(self.fcL.in_features)], dim=0 )
                 # self.fcL.bias = torch.nn.Parameter(torch.diag(-self.fcL(x)))
 
-                X = self.fcL(X)
-                fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-                for i in range(X.shape[1]):
-                    ax.plot(
-                        args["X"].detach().cpu().numpy().reshape(-1),
-                        X[:, i].detach().cpu().numpy(),
-                        ".",
-                        markersize=2,
-                        label=f"Neuron {i}",
-                    )
-                fig.tight_layout()
-                ax.set_xlabel("X", fontsize=14)
-                ax.set_ylabel("Activation", fontsize=14)
-                ax.legend(fontsize=10)
-                ax.set_title("Activations of neurons in fc1", fontsize=16)
-                plt.show()
         else:
             raise ValueError("Unknown initialization method: {}".format(method))
 
@@ -439,6 +470,7 @@ class ffNN(torch.nn.Module):
             second_grads = torch.autograd.grad(g, params, retain_graph=True)
             h_row = torch.cat([sg.contiguous().view(-1) for sg in second_grads])
             hessian.append(h_row)
+            print(h_row.shape)
         hessian = torch.stack(hessian)
         return hessian
 
@@ -563,7 +595,7 @@ test_dataset = TentDataset(
 )
 size_dataset = train_dataset.__len__() + test_dataset.__len__()
 # Small batch size or full batch size
-batch_size = min([2**10, size_dataset])
+batch_size = min([2**7, size_dataset])
 
 loader_train = DataLoader(
     train_dataset + test_dataset,
@@ -695,7 +727,7 @@ elif model_type == "deep":
 # %%
 
 criterion = torch.nn.MSELoss()
-
+model.eval()
 fig, ax = plt.subplots(1, 1, figsize=(10, 5))
 for i, (x, y) in enumerate(loader):
 
@@ -957,30 +989,14 @@ plot_network_activations(model, loader)
 
 # %%
 
-# if model_type == "deep":
-#     model = ffNN(
-#         input_size=1,
-#         hidden_size=2,
-#         output_size=1,
-#         hL=q,
-#         activation=activation,
-#     )
-# elif model_type == "shallow":
-#     model = ffNN(
-#         input_size=1,
-#         hidden_size=2**q,
-#         output_size=1,
-#         hL=1,
-#         activation=activation,
-#     )
-
 model = ffNN(
     input_size=1,
     hidden_size=2**q,
     output_size=1,
-    hL=2 * q,
+    hL=q,
     activation=activation,
 )
+model.eval()
 # init_method = "He"
 # init_method = "Shin"
 # init_method = "New"
@@ -1029,7 +1045,8 @@ for name, param in model.named_parameters():
 print()
 
 model.initialize_weights(method=init_method, args=args)
-
+model.plot_z(x_batch)
+# %%
 # do not train activation parameters
 for name, param in model.named_parameters():
     if "activation" in name:
@@ -1040,10 +1057,9 @@ print("Model weights:")
 for name, param in model.named_parameters():
     # print(name, param.data, param.shape)
     print(name, param.shape, param.requires_grad)
-print()
 
 plot_network_activations(model, loader)
-print()
+
 
 print("Model weights:")
 for name, param in model.named_parameters():
@@ -1060,6 +1076,7 @@ print(f"current:{N} min:{2**q}")
 
 
 model.prune_dead_neurons(x_batch, threshold=0)
+model.plot_z(x_batch)
 counts_dict = model.count_active_neurons(x_batch)
 plot_network_activations(model, loader)
 
@@ -1090,22 +1107,15 @@ criterion = torch.nn.MSELoss()
 #     lr=0.01,
 #     momentum=0.0,
 # )
-params = {
-    "lr": 0.001,
-    "betas": (0.9, 0.999),
-    "eps": 1e-8,
-    "weight_decay": 0.0,
-    "amsgrad": False,
-}
-optimizer = torch.optim.Adam(model.parameters(), **params)
-# optimizer = SaddleFreeNewton(
-#     model.parameters(),
-#     lr=0.003,
-# )
 
 
 loss_threshold = 1e-8 * size_dataset  # 1e-6 * size_dataset
 stop_condition = False
+
+
+fig_model, ax_model = plt.subplots(1, 1, figsize=(10, 5))
+ax_model.set_xlabel("x", fontsize=14)
+ax_model.set_ylabel(f"$f^q(x)$", fontsize=14)
 
 Y_hat_0 = []
 X = []
@@ -1120,19 +1130,17 @@ for i, (x, y) in enumerate(loader_train):
         Y.append(y.detach().numpy().flatten())
         X.append(x.detach().numpy().flatten())
 
-fig_model, ax_model = plt.subplots(1, 1, figsize=(10, 5))
-
 X = np.concatenate(X)
 Y = np.concatenate(Y)
 Y_hat_0 = np.concatenate(Y_hat_0)
-ax_model.plot(X, Y_hat_0, ".", label=f"initial prediction")
+
+# ax_model.plot(X, Y_hat_0, ".", label=f"initial prediction")
 ax_model.plot(X, Y, "o", label=f"true", markersize=2, markerfacecolor="none")
-ax_model.set_xlabel("x", fontsize=14)
-ax_model.set_ylabel(f"$f^q(x)$", fontsize=14)
-ax_model.legend(fontsize=10)
-ax_model.set_aspect("equal")
-fig_model.tight_layout()
-plt.show()
+
+# ax_model.legend(fontsize=10)
+# ax_model.set_aspect("equal")
+# fig_model.tight_layout()
+# fig_model
 
 # %%
 
@@ -1147,6 +1155,51 @@ plt.show()
 
 
 # %%
+model.train()
+
+offset = np.mean(Y_hat_0)
+model.fcL.bias = torch.nn.Parameter(
+    torch.tensor(model.fcL.bias.data.numpy() - offset, dtype=torch.float32)
+)  # shift the bias to match the initial prediction
+
+X_hat = []
+Y_hat_1 = []
+for i, (x, y) in enumerate(loader_train):
+    if shift:
+        x = x - 0.5
+        y = y - 0.5
+    with torch.no_grad():
+        y_pred = model(x)
+        Y_hat_1.append(y_pred.detach().numpy().flatten())
+        X_hat.append(x.detach().numpy().flatten())
+
+Y_hat_1 = np.concatenate(Y_hat_1)
+X_hat = np.concatenate(X_hat)
+ax_model.plot(X_hat, Y_hat_1, ".", label=f"initial prediction")
+ax_model.legend(fontsize=10)
+fig_model.tight_layout()
+fig_model
+
+# %%
+# train all layers
+for name, param in model.named_parameters():
+    param.requires_grad = True
+
+
+params = {
+    "lr": 0.001,
+    "betas": (0.9, 0.999),
+    "eps": 1e-8,
+    "weight_decay": 0.0,
+    "amsgrad": False,
+}
+optimizer = torch.optim.Adam(model.parameters(), **params)
+# optimizer = SaddleFreeNewton(
+#     model.parameters(),
+#     lr=0.003,
+# )
+
+
 for epoch in range(2000):
     loss_acc = 0
     for i, (x, y) in enumerate(loader_train):
@@ -1154,20 +1207,6 @@ for epoch in range(2000):
         if shift:
             x = x - 0.5
             y = y - 0.5
-
-        # if isinstance(optimizer, SaddleFreeNewton):
-        #     loss, update = optimizer.step(closure)
-        #     w = []
-        #     for p in update:
-        #         w.extend(p.detach().numpy().flatten())
-        #     G.append(w)
-        # else:
-        #     loss = optimizer.step(closure)
-        #     w = []
-        #     for name, param in model.named_parameters():
-        #         if param.requires_grad:
-        #             w.extend(param.grad.data.numpy().flatten())
-        #     G.append(w)
 
         optimizer.zero_grad()
         y_pred = model(x)
@@ -1177,45 +1216,10 @@ for epoch in range(2000):
         optimizer.step()
         loss_acc += loss.item()
 
-        # for name, param in model.named_parameters():
-        #     if param.grad is not None:
-        #         print(f"{name}: {param.grad}")
-
-        # w = []
-        # for name, param in model.named_parameters():
-        #     if param.requires_grad:
-        #         w.extend(param.grad.data.numpy().flatten())
-        # G.append(w)
-        # weights = []
-        # for name, param in model.named_parameters():
-        #     if param.requires_grad:
-        #         weights.extend(param.data.numpy().flatten())
-
-        # W.append(weights)
-
     if loss_acc < loss_threshold:
         stop_condition = True
         break
 
-    # for name, param in model.named_parameters():
-    #     print(name, param.shape, param.requires_grad)
-
-    # model.prune_dead_neurons(x_batch, threshold=0)
-
-    # for name, param in model.named_parameters():
-    #     print(name, param.shape, param.requires_grad)
-
-    # N = 1
-    # for name, param in model.named_parameters():
-    #     if "weight" in name:
-    #         N *= param.shape[0]
-    # print(f"current:{N} min:{2**q}")
-
-    # if N < 2**q:
-    #     print(
-    #         f"Pruned {2**q - N} neurons at epoch {epoch}. Current number of neurons: {N}"
-    #     )
-    #     break
     if stop_condition:
         print(f"Epoch {epoch}, Batch {i}, Loss: {loss_acc:.2e}")
         print(f"current:{N} min:{2**q}")
@@ -1228,50 +1232,11 @@ for epoch in range(2000):
         print(f"Epoch {epoch}, Batch {i}, Loss: {loss_acc:.2e}")
         print(f"current:{N} min:{2**q}")
 
-    # optimizer = torch.optim.Adam(model.parameters(), **params)
-    # criterion = torch.nn.MSELoss()
-    # break
-
-print()
-
 
 # print model weights
 print("Model weights:")
 for name, param in model.named_parameters():
     print(name, param.shape, param.requires_grad)
-
-print()
-
-# fig, ax = plt.subplots(2, 2, figsize=(10, 10), sharex=True)
-# W_ = np.array(W)
-# G_ = np.array(G)
-# for i in range(G_.shape[1]):
-#     mean_G = np.max(np.abs(G_[:, i]))
-#     # print(f"Weight {i}: {w_name[i]}, mean gradient: {mean_G:.2e}")
-#     if mean_G > 1e-3:
-#         name = w_name[i]
-#         if "bias" in name:
-#             ax[0, 1].plot(W_[:, i], ".", label=f"{name}")
-#             ax[1, 1].plot(G_[:, i], ".", label=f"{name}_grad")
-#         else:
-#             ax[0, 0].plot(W_[:, i], ".", label=f"{name}")
-#             ax[1, 0].plot(G_[:, i], ".", label=f"{name}_grad")
-#     else:
-#         print(f"{w_name[i]} is dead")
-
-# # legend outside the plot
-# for i in range(2):
-#     ax[0, i].legend(fontsize=10, loc="upper left", bbox_to_anchor=(1, 1))
-#     ax[1, i].legend(fontsize=10, loc="upper left", bbox_to_anchor=(1, 1))
-#     ax[0, i].set_xlabel("Epoch", fontsize=10)
-#     ax[1, i].set_xlabel("Epoch", fontsize=10)
-
-# ax[0, 0].set_title("Weights $W_i$", fontsize=14)
-# ax[1, 0].set_title("Gradients $W_i$", fontsize=14)
-# ax[0, 1].set_title("Bias $b_i$", fontsize=14)
-# ax[1, 1].set_title("Gradients $b_i$", fontsize=14)
-
-# fig.tight_layout()
 
 Y_hat = []
 X_hat = []
@@ -1290,15 +1255,16 @@ Y_hat = np.concatenate(Y_hat)
 X_hat = np.concatenate(X_hat)
 
 ax_model.plot(X_hat, Y_hat, ".", label=f"final prediction")
-ax_model.set_xlabel("x", fontsize=14)
-ax_model.set_ylabel(f"$f^n(x)$", fontsize=14)
+
 ax_model.legend(fontsize=10)
 ax_model.set_aspect("equal")
-
 fig_model.tight_layout()
+
 fig_model
+
 # %%
 
+model.eval()
 plot_network_activations(model, loader)
 
 print("Number of neurons in each layer:")
@@ -1379,22 +1345,23 @@ y_pred = model_new(x_batch)
 criterion = torch.nn.MSELoss()
 loss = criterion(y_pred, y_batch)
 
-# Flatten parameters
-params = [p for p in model_new.parameters() if p.requires_grad]
-flat_params = torch.cat([p.contiguous().view(-1) for p in params])
+hessian = model_new.compute_hessian(loss)
+# # Flatten parameters
+# params = [p for p in model_new.parameters() if p.requires_grad]
+# flat_params = torch.cat([p.contiguous().view(-1) for p in params])
 
-# First-order gradient
-grad = torch.autograd.grad(loss, params, create_graph=True)
-flat_grad = torch.cat([g.contiguous().view(-1) for g in grad])
+# # First-order gradient
+# grad = torch.autograd.grad(loss, params, create_graph=True)
+# flat_grad = torch.cat([g.contiguous().view(-1) for g in grad])
 
-# Hessian matrix
-hessian = []
-for g in flat_grad:
-    second_grads = torch.autograd.grad(g, params, retain_graph=True)
-    h_row = torch.cat([sg.contiguous().view(-1) for sg in second_grads])
-    hessian.append(h_row)
+# # Hessian matrix
+# hessian = []
+# for g in flat_grad:
+#     second_grads = torch.autograd.grad(g, params, retain_graph=True)
+#     h_row = torch.cat([sg.contiguous().view(-1) for sg in second_grads])
+#     hessian.append(h_row)
 
-hessian = torch.stack(hessian)  # shape: [n_params, n_params]
+# hessian = torch.stack(hessian)  # shape: [n_params, n_params]
 print("Hessian shape:", hessian.shape)
 
 eigenvalues, eigenvectors = torch.linalg.eig(hessian)
